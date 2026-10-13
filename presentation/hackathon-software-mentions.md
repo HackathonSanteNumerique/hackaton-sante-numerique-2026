@@ -28,7 +28,7 @@ Campus Biaggi, Marseille · Salle Australie · 14–15 October 2026
 
 Luca Foppiano (ScienciaLAB, Inria) · Clémence Sebe (LISN, Université Paris-Saclay)
 
-![h:60](logos/rt-santenum.svg) &nbsp;&nbsp; ![h:60](logos/inria.svg) &nbsp;&nbsp; ![h:60](logos/pepr-santenum.png) &nbsp;&nbsp; ![h:60](logos/sciencialab.png)
+![h:60](logos/rt-santenum.svg) &nbsp;&nbsp; ![h:60](logos/inria.svg) &nbsp;&nbsp; ![h:60](logos/sciencialab.png)
 
 <div class="logos">
   <img src="logos/rt-santenum.svg">
