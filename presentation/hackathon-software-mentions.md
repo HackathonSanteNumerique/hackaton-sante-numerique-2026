@@ -225,7 +225,7 @@ Three questions to guide your two days:
 - **Alternative sources**: [OpenAlex](https://openalex.org/) — metadata, citations, authors, institutions
 - **Vibe-coding welcome**: [opencode.ai](https://opencode.ai/) or your favourite assistant
 - **Environment**: VM with Conda, Docker, Python
-- **Code & discussion**: hackathon GitHub organisation → `<link to add>`
+- **Code & discussion**: hackathon GitHub organisation → `https://github.com/HackatonSanteNumerique`
 
 ---
 
@@ -317,7 +317,7 @@ Please share code and notebooks on the hackathon GitHub 🙏
 # Your turn! 🚀
 
 **Data**: 🤗 HackatonSanteNumerique/pepr-hal-data
-**Code**: `https://github.com/ScienciaLAB/hackaton-sante-numerique-2026`
+**Code**: `https://github.com/HackatonSanteNumerique/hackaton-sante-numerique-2026`
 **Contacts**: Luca Foppiano · Clémence Sebe
 
 ---
