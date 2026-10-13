@@ -123,7 +123,7 @@ modal deploy deployments/baguette/inference_baguette.py
 **Call it:**
 
 ```bash
-curl -X POST https://<workspace>--baguette-software-dataset-app-extract-endpoint.modal.run/ \
+curl -X POST https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/ \
   -H 'Content-Type: application/json' \
   -d '{"paragraphs": ["We used SPSS v25 for the statistical analysis."], "analyze": true}'
 ```
@@ -140,10 +140,10 @@ The response contains:
 ```bash
 python deployments/baguette/baguette_client.py \
   --input_folder data/pepr-hal-data/xml --output_dir data/baguette --csv_output data/baguette.csv \
-  --endpoint <endpoint-url> --threads 4
+  --endpoint https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/ --threads 4
 ```
 
-> The organisers will share the endpoint URL for the hackathon.
+> **Hackathon endpoint:** `https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/` (POST only). Each call costs real GPU time, so batch your paragraphs and don't hammer it.
 
 ---
 
