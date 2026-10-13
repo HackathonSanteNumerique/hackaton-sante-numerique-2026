@@ -1,0 +1,17 @@
+[project]
+name = "hackaton-sante-numerique-2026"
+version = "0.1.0"
+description = "Hackathon on software mention extraction — Séminaire Santé Numérique 2026"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "matplotlib",
+    "jupyter",
+    "ipykernel",
+    "huggingface_hub",
+]
+
+[tool.uv]
+# This repo is a hackathon workspace, not an installable package.
+package = false
