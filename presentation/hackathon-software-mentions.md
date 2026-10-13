@@ -317,7 +317,7 @@ Please share code and notebooks on the hackathon GitHub 🙏
 # Your turn! 🚀
 
 **Data**: 🤗 HackatonSanteNumerique/pepr-hal-data
-**Code**: `<GitHub link>`
+**Code**: `https://github.com/ScienciaLAB/hackaton-sante-numerique-2026`
 **Contacts**: Luca Foppiano · Clémence Sebe
 
 ---
