@@ -113,37 +113,58 @@ The `produced` / `reused` / `mentioned` roles roughly map to Softcite's `created
 
 ### lm-inference
 
-[ScienciaLAB/lm-inference](https://github.com/ScienciaLAB/lm-inference) (Apache-2.0) has the scripts that deploy document-AI models as serverless apps on [Modal](https://modal.com/), Baguette among them. The Baguette deployment runs vLLM on one L4 GPU.
+[ScienciaLAB/lm-inference](https://github.com/ScienciaLAB/lm-inference) (Apache-2.0) has the scripts that deploy document-AI models as serverless apps on [Modal](https://modal.com/), Baguette among them. The Baguette service runs vLLM on L4 GPUs (at most 4 containers by default). The full documentation is in [`deployments/baguette/readme.md`](https://github.com/ScienciaLAB/lm-inference/tree/main/deployments/baguette). Until [PR #31](https://github.com/ScienciaLAB/lm-inference/pull/31) is merged, read it on the [`feature/baguette-server-splitting`](https://github.com/ScienciaLAB/lm-inference/blob/feature/baguette-server-splitting/deployments/baguette/readme.md) branch.
+
+> **Hackathon endpoint:** `https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/` (POST only). Every call uses real GPU time, so test on a few papers before you run a whole folder.
+
+**One request = one paper.** Send the paper whole; the server splits it into pieces of about 200 tokens, because the model only works on inputs the size of a paragraph.
 
 ```bash
-pip install -r deployments/requirements.txt
-modal deploy deployments/baguette/inference_baguette.py
+URL=https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/
+
+# a text
+curl -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"text": "Analyses were performed with SPSS v25 and R 4.3."}'
+
+# a GROBID TEI file from the PEPR corpus, without step 2
+curl -X POST $URL -F 'file=@data/pepr-hal-data/xml/<paper>.grobid.tei.xml' -F 'analyze=false'
+
+# paragraphs you split yourself
+curl -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"paragraphs": ["First paragraph.", "Second paragraph."], "analyze": false}'
 ```
 
-**Call it:**
+- **Input:** `text` (JSON, plain-text body or form field), `file` (`.txt`, `.md`, `.xml` TEI or `.json`), or `paragraphs` (a list of strings).
+- **TEI files:** the server reads the `<p>` elements of the abstract, body and back. Figure and table captions are left out.
+- **`analyze`:** defaults to `true` and runs step 2. Pass `false` if you only need the mentions.
+
+**Response:**
+
+- `paragraphs[]`: per paragraph, `is_boilerplate`, `datasets` and `software`. Each mention has `name`, `role` and `evidence`; split paragraphs also have `chunks`, and failed ones `error` and `raw_output`.
+- `mentions`: deduplicated by lower-cased name
+- `record`: the step-2 output, with `record_error` when it fails
+- `duration_seconds`, `cost_usd` and `gpu`
+
+HTTP 400 means the input couldn't be read; HTTP 500 means the service failed.
+
+**Batch client:** needs only `requests`. It writes one JSON file per paper plus a CSV summary, retries on 5xx errors, and on a second run skips papers that already succeeded:
 
 ```bash
-curl -X POST https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/ \
-  -H 'Content-Type: application/json' \
-  -d '{"paragraphs": ["We used SPSS v25 for the statistical analysis."], "analyze": true}'
+git clone https://github.com/ScienciaLAB/lm-inference.git
+python lm-inference/deployments/baguette/baguette_client.py --endpoint $URL \
+  --input-folder data/pepr-hal-data/xml \
+  --output-dir data/baguette --csv-output data/baguette.csv \
+  --threads 4 --no-analyze
 ```
 
-The response contains:
+Keep `--threads` at 4 or below: that's the number of GPU containers the service runs.
 
-- `paragraphs[]`: per paragraph, `is_boilerplate`, `datasets` and `software`
-- `mentions`: deduplicated by name
-- `record`: the step-2 output
-- `duration_seconds` and `cost_usd`
+**Things to know:**
 
-**Batch client:** reads GROBID TEI `<p>` elements, JSON lists, or blank-line-separated text and Markdown, so it works on the PEPR corpus as is:
-
-```bash
-python deployments/baguette/baguette_client.py \
-  --input_folder data/pepr-hal-data/xml --output_dir data/baguette --csv_output data/baguette.csv \
-  --endpoint https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/ --threads 4
-```
-
-> **Hackathon endpoint:** `https://sciencialab--baguette-software-dataset-app-extract-endpoint.modal.run/` (POST only). Each call costs real GPU time, so batch your paragraphs and don't hammer it.
+- The first request after an idle period waits for a container to start, which takes more than a minute. The client's timeout is 30 minutes.
+- Deduplication is by name only, so `R` and `R 4.2.1` count as two software.
+- A mention cut between two pieces can be lost.
+- The output isn't checked against a schema, so the fields of a mention may vary.
 
 ---
 
