@@ -105,7 +105,7 @@ On the PEPR corpus, only the **paper-text NER** applies, since there is no workf
 - `.txt` / `.md`: blocks separated by blank lines
 - `.json`: a list of strings, or an object with `paragraphs` or `text`
 
-It uses the **GPU** when there is one (CUDA, or MPS on a Mac) and falls back to the CPU; `--device cpu` (or `cuda:1`, `mps`) forces a device. On CPU it takes 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
+It uses the **GPU** when there is one (CUDA, or MPS on a Mac) and falls back to the CPU; `--device cpu` (or `cuda:1`, `mps`) forces a device. On a Mac, some nlstruct operations crash on MPS (`Unaligned blit request`): the client then retries the paper on the CPU and stays there for the rest of the run. On CPU it takes 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
 
 **Setup**, in the `copalink-experiments` Conda environment of nlp_models (see its README):
 

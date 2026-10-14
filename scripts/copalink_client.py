@@ -37,7 +37,8 @@ Without --output-dir the result is printed. --brat-dir also writes the .txt and
 .ann files of each paper, in the format of predict_files.py, to view in brat.
 
 The model runs on the GPU when there is one (CUDA, or MPS on a Mac), otherwise on
-the CPU; --device forces one.
+the CPU; --device forces one. If a prediction fails on MPS, the client retries it
+and runs the rest of the papers on the CPU.
 """
 
 import argparse
@@ -178,6 +179,20 @@ def split_label(label) -> tuple[str, list[str]]:
     return (types[0] if types else labels[0]), attributes
 
 
+def predict_document(model, document: dict) -> dict:
+    """model.predict, falling back to the CPU if it fails on MPS: some PyTorch
+    operations in nlstruct crash there ("Unaligned blit request"). The model then
+    stays on the CPU for the rest of the run."""
+    try:
+        return model.predict(document)
+    except RuntimeError as e:
+        if next(model.parameters()).device.type != "mps":
+            raise
+        print(f"Prediction failed on mps, switching to the CPU: {str(e).splitlines()[0]}", file=sys.stderr)
+        model.to("cpu")
+        return model.predict(document)
+
+
 def predict(model, model_name: str, name: str, paragraphs: list[str]) -> tuple[dict, dict]:
     """Predict one paper and assign each entity to its paragraph."""
     text = PARAGRAPH_SEPARATOR.join(paragraphs)
@@ -187,7 +202,7 @@ def predict(model, model_name: str, name: str, paragraphs: list[str]) -> tuple[d
         offset += len(paragraph) + len(PARAGRAPH_SEPARATOR)
 
     start = time.time()
-    doc = model.predict({"doc_id": name, "text": text})
+    doc = predict_document(model, {"doc_id": name, "text": text})
     duration = time.time() - start
 
     items = [{"index": i, "text": p, "entities": []} for i, p in enumerate(paragraphs)]
