@@ -175,6 +175,20 @@ The JSON results have:
 
 The JSON results are in `data/somesci/results/<tool>/<config>.json`. The Softcite results will be added here, next to the Baguette ones.
 
+### Baguette: summary
+
+Document level, relaxed matching, all software types:
+
+| Config | Documents | Gold software | Predicted names | P | R | F1 | F1 mention (overlap) |
+|---|---|---|---|---|---|---|---|
+| `plos_sentences` | 677 | 916 | 753 | 0.915 | 0.746 | **0.822** | 0.770 |
+| `plos_methods` | 480 | 1,142 | 719 | 0.710 | 0.438 | **0.542** | 0.512 |
+| `pubmed_fulltext` | 97 | 285 | 208 | 0.634 | 0.456 | **0.531** | 0.519 |
+
+- **Sentences against longer texts:** Baguette does well on single sentences (F1 0.82). On methods sections and full papers it drops to about 0.53–0.54, with both precision and recall lower.
+- **Methods sections are as hard as full papers.** A methods section is sent as one paragraph, which the server cuts into pieces of about 200 tokens. So the drop seems to come with the length of the input, more than with the parts of the paper (introduction, references…) that only a full text has. This is a hypothesis, to check in the `errors`.
+- **Baguette gives fewer names than there are gold software** on the longer texts: 719 against 1,142 on methods sections, 208 against 285 on full papers. Recall is the main problem there.
+
 ### Baguette on `plos_sentences`
 
 677 sentences. Baguette gave 753 unique names; 17 of them are not in the text.
@@ -206,6 +220,32 @@ The JSON results are in `data/somesci/results/<tool>/<config>.json`. The Softcit
 
 The `errors` of the results JSON tell real misses apart from differences of name that relaxed matching does not catch.
 
+### Baguette on `plos_methods`
+
+480 methods sections. Baguette gave 719 unique names, 1.5 per section; 26 of them are not in the text. The gold has 1,142 software (2.4 per section) and 1,563 mentions.
+
+| Level | P | R | F1 | TP | FP | FN |
+|---|---|---|---|---|---|---|
+| `doc_exact` | 0.558 | 0.351 | 0.431 | 401 | 318 | 741 |
+| `doc_relaxed` | **0.710** | **0.438** | **0.542** | 500 | 204 | 642 |
+| `mention_strict` | 0.450 | 0.397 | 0.422 | 620 | 757 | 943 |
+| `mention_overlap` | 0.546 | 0.481 | 0.512 | 752 | 625 | 811 |
+| `version` | 0.367 | 0.399 | 0.382 | 99 | 171 | 149 |
+
+| Recall by type | document (relaxed) | mention (overlap) |
+|---|---|---|
+| `PROGRAMMINGENVIRONMENT` | 0.598 | 0.612 |
+| `PLUGIN` | 0.450 | 0.483 |
+| `APPLICATION` | 0.429 | 0.474 |
+| `OPERATINGSYSTEM` | 0.032 | 0.030 |
+
+**How to read it:**
+
+- **F1 0.54** at document level (relaxed), against 0.82 on sentences. Recall is the weak part (0.44): Baguette misses more than half of the software of a methods section.
+- **Exact vs relaxed (0.43 → 0.54):** as on sentences, a good part of the exact-match errors are differences of name.
+- **Programming environments** (R, Python, MATLAB…) are the best found (0.60). Applications and plugins are below 0.45.
+- **Versions are weak (F1 0.38),** lower than on sentences (0.53).
+
 ### Baguette on `pubmed_fulltext`
 
 97 full papers. Baguette gave 208 unique names, about 2 per paper; 11 of them are not in the text. The gold has 285 software (about 3 per paper) and 414 mentions.
@@ -235,7 +275,6 @@ The `errors` of the results JSON tell real misses apart from differences of name
 
 Before reading this as the quality of Baguette on full papers, check how the papers were sent: the number of paragraphs and pieces per paper and the failed paragraphs, in the Baguette outputs. A full text cut in the wrong places, or failed paragraphs, would lower recall without being a fault of the model.
 
-The `plos_methods` results will be added here.
 
 ## Limits
 
