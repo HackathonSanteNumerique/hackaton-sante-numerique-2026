@@ -66,6 +66,7 @@ done
 ```bash
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --explicit-only
+uv run python scripts/eval_somesci.py evaluate --config plos_sentences --exclude-os
 ```
 
 | Option | Default | |
@@ -74,6 +75,7 @@ uv run python scripts/eval_somesci.py evaluate --config plos_sentences --explici
 | `--data` | `data/somesci` | the `--out` folder of `prepare` |
 | `--baguette-dir` | `<data>/baguette/<config>` | the Baguette outputs |
 | `--explicit-only` | off | leave out the mentions Baguette marks `implicit` |
+| `--exclude-os` | off | leave the operating systems out of the gold; a predicted name that matches one is not counted, neither as a true nor as a false positive |
 | `--out` | `<data>/results/<config>.json` | the JSON results |
 
 A document without a Baguette output counts as one with no prediction. The number of these is printed, and their ids are in the results.
@@ -111,10 +113,13 @@ Baguette gives names without positions. The script searches the text for each pr
 
 ### Versions
 
-`version` is scored only on the software found at document level (relaxed match).
+`version` is scored only on the software found at document level (relaxed match). For each of them, the predicted versions are compared with the gold versions of the software:
 
-- **Recall:** the share of the gold versions of these software that appear in the predicted `version` field or in the predicted name.
-- **Precision:** a predicted `version` field that is not one of the gold versions is a false positive.
+- **Predicted versions:** the `version` field of the mention, plus the numbers of the predicted name that are not in the name of the software. `SPSS 22` gives `22`, `MATLAB R2014a` gives `2014a`, but `3D Slicer` gives nothing.
+- **Normalisation:** a `version`, `ver.`, `v`, `release`, `build` or `r` prefix is removed, so `Version 2.15`, `v2.15` and `2.15` are the same.
+- **Counts:** a predicted version that is a gold version is a true positive, the other predicted versions are false positives, and the gold versions not predicted are false negatives.
+
+A version given for a software that SoMeSci annotates without one is a false positive. That happens when SoMeSci attaches the version to another name of the same software (see [Limits](#limits)).
 
 ### Output
 
@@ -136,8 +141,41 @@ The JSON results have:
 
 - **`metrics`:** precision, recall, F1, TP, FP and FN for each level.
 - **`recall_by_type`:** recall by software type at both levels, and the number of gold software of each type.
-- **`errors`:** per document, the `false_positives` and `false_negatives` at document level (relaxed), and the names `not_in_text`. Start the error analysis here.
+- **`errors`:** per document, the `false_positives` and `false_negatives` at document level (relaxed), the names `not_in_text`, and the `version_errors` (gold software, predicted name, gold and predicted versions). Start the error analysis here.
 - **`missing_output_ids`:** the documents without a Baguette output.
+
+## Results
+
+### `plos_sentences`
+
+677 sentences. Baguette gave 753 unique names; 17 of them are not in the text.
+
+| Level | P | R | F1 | TP | FP | FN |
+|---|---|---|---|---|---|---|
+| `doc_exact` | 0.756 | 0.621 | 0.682 | 569 | 184 | 347 |
+| `doc_relaxed` | **0.915** | **0.746** | **0.822** | 683 | 63 | 233 |
+| `mention_strict` | 0.660 | 0.607 | 0.633 | 581 | 299 | 376 |
+| `mention_overlap` | 0.803 | 0.739 | 0.770 | 707 | 173 | 250 |
+
+| Recall by type | document (relaxed) | mention (overlap) |
+|---|---|---|
+| `APPLICATION` | 0.797 | 0.795 |
+| `PROGRAMMINGENVIRONMENT` | 0.785 | 0.718 |
+| `PLUGIN` | 0.674 | 0.682 |
+| `OPERATINGSYSTEM` | 0.037 | 0.054 |
+
+The version row is not shown: it was computed with an earlier version metric, which mixed two different counts. Re-run `evaluate` to get it.
+
+**How to read it:**
+
+- **Headline: F1 0.82** at document level with relaxed matching. Each document is one sentence here, so this is close to "did Baguette find the software of the sentence".
+- **Precision is high (0.92), recall is lower (0.75).** Baguette rarely gives a name that is not software, and only 17 of its 753 names are not in the text (paraphrased or invented). Most errors are missed software.
+- **Exact vs relaxed (0.68 → 0.82):** relaxed matching adds 114 true positives. They are differences of name rather than of detection, probably because Baguette puts the version or the vendor in the name (`SPSS 22` where SoMeSci annotates `SPSS`), or the other way round. To be checked in the `errors`.
+- **Strict vs overlap (0.63 → 0.77):** the same thing at mention level, with 126 more matches. Baguette finds the right place, but its span is longer or shorter than the gold one, probably for the same reason.
+- **Operating systems:** Baguette almost never gives Windows, Linux or macOS as software. This looks like a choice of the model rather than a miss. They are few in the gold; `--exclude-os` gives the scores without them.
+- **Plugins** (R or Python packages, toolboxes…) are found less often (0.67) than applications and programming languages (about 0.79).
+
+The `errors` of the results JSON tell real misses apart from differences of name that relaxed matching does not catch. The `pubmed_fulltext` and `plos_methods` results will be added here; longer texts should give lower scores.
 
 ## Limits
 

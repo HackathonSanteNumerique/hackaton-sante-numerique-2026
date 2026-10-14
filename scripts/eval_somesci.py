@@ -32,6 +32,9 @@ offsets, so two levels are scored, micro-averaged, with one-to-one matching:
   in the text counts as one false positive. Predicted spans that only hit an abbreviation or
   alternative name are not counted.
 
+Versions are scored on the software found (relaxed): the `version` field and the numbers of the
+predicted name, against the gold versions. --exclude-os leaves the operating systems out.
+
 SoMeSci on Hugging Face has no mention types (usage, creation...), so the Baguette roles are
 not scored.
 """
@@ -217,6 +220,25 @@ def strip_version(name, version):
     return re.sub(r"\s+(v(ersion)?\.?\s*)?\d[\w.\-]*$", "", name.strip(), flags=re.I).strip()
 
 
+VERSION_PREFIX = re.compile(r"^(version|ver\.?|v\.?|release|rel\.?|build|r)\s*(?=\d)", re.I)
+
+
+def normalise_version(version):
+    """'Version 2.15', 'v.2.15' and '2.15' are the same version."""
+    return VERSION_PREFIX.sub("", normalise(version)).strip()
+
+
+def predicted_versions(name, version, aliases):
+    """Versions of a prediction: its `version` field and the numbers of its name that are not in the
+    name of the software ('SPSS 22' -> 22, but not the 3 of '3D Slicer')."""
+    versions = {normalise_version(version)} if version else set()
+    alias_words = set().union(*(words(a) for a in aliases))
+    for token in re.findall(r"(?<![\w.])[vr]?\.?\d[\w.\-]*", name, flags=re.I):
+        if normalise(token) not in alias_words:
+            versions.add(normalise_version(token))
+    return {v for v in versions if v}
+
+
 def find_spans(name, text):
     pattern = r"\s+".join(re.escape(part) for part in name.split())
     return [(m.start(), m.end()) for m in re.finditer(rf"(?<!\w){pattern}(?!\w)", text, flags=re.I)]
@@ -295,6 +317,7 @@ def gold_software(doc):
 
 
 def evaluate(args):
+    ignored_types = {"OPERATINGSYSTEM"} if args.exclude_os else set()
     gold_path = args.data / "gold" / f"{args.config}.jsonl"
     baguette_dir = args.baguette_dir or args.data / "baguette" / args.config
     docs = [json.loads(line) for line in gold_path.open(encoding="utf-8")]
@@ -315,7 +338,12 @@ def evaluate(args):
         n_names += len(predictions)
 
         # Document level
-        gold = gold_software(doc)
+        # With --exclude-os, the operating systems are left out of the gold, and the names that match one
+        # are not counted (neither true nor false positives)
+        all_gold = gold_software(doc)
+        gold = [g for g in all_gold if g["type"] not in ignored_types]
+        ignored = {i for i, (name, _) in enumerate(predictions)
+                   if any(match_score(name, g["aliases"]) for g in all_gold if g["type"] in ignored_types)}
         pairs = [(score, i, j) for i, (name, _) in enumerate(predictions) for j, g in enumerate(gold)
                  if (score := match_score(name, g["aliases"]))]
         for level, min_score in (("doc_exact", 2), ("doc_relaxed", 1)):
@@ -323,6 +351,7 @@ def evaluate(args):
             # Another name of a software already matched (e.g. its abbreviation) is not a false positive
             matched_i, matched_j = {i for _, i, _ in matched}, {j for _, _, j in matched}
             extra = {i for score, i, j in pairs if score >= min_score and j in matched_j and i not in matched_i}
+            extra |= ignored - matched_i
             counts[level].update(tp=len(matched), fp=len(predictions) - len(matched) - len(extra),
                                  fn=len(gold) - len(matched))
             if level == "doc_relaxed":
@@ -331,18 +360,21 @@ def evaluate(args):
                     type_recall[gold[j]["type"]]["tp"] += 1
                 for g in gold:
                     type_recall[g["type"]]["total"] += 1
-        # Versions of the matched software: in the `version` field or in the predicted name
+        # Versions of the software found (relaxed): predicted versions against the gold versions
+        version_errors = []
         for _, i, j in relaxed:
             name, version = predictions[i]
-            predicted = normalise(f"{name} {version or ''}")
-            gold_versions = {normalise(v) for v in gold[j]["version"]}
-            found = {v for v in gold_versions if re.search(rf"(?<!\w){re.escape(v)}(?!\w)", predicted)}
-            counts["version"].update(tp=len(found), fn=len(gold_versions) - len(found),
-                                     fp=int(bool(version) and normalise(version) not in gold_versions))
+            predicted = predicted_versions(name, version, gold[j]["aliases"])
+            expected = {normalise_version(v) for v in gold[j]["version"]} - {""}
+            counts["version"].update(tp=len(predicted & expected), fp=len(predicted - expected),
+                                     fn=len(expected - predicted))
+            if predicted != expected:
+                version_errors.append({"software": gold[j]["name"], "predicted_name": name,
+                                       "gold": sorted(expected), "predicted": sorted(predicted)})
 
         # Mention level
-        gold_spans = [e for e in doc["entities"] if e["label"] in SOFTWARE_TYPES]
-        alias_spans = [e for e in doc["entities"] if e["label"] in ALIAS_TYPES]
+        gold_spans = [e for e in doc["entities"] if e["label"] in SOFTWARE_TYPES - ignored_types]
+        alias_spans = [e for e in doc["entities"] if e["label"] in ALIAS_TYPES | ignored_types]
         spans, missing = locate(predictions, doc["text"])
         not_in_text += len(missing)
         spans = [s for s in spans
@@ -365,15 +397,16 @@ def evaluate(args):
         fp = [predictions[i][0] for i in range(len(predictions))
               if i not in {i for _, i, _ in relaxed} and i not in relaxed_extra]
         fn = [gold[j]["name"] for j in range(len(gold)) if j not in {j for _, _, j in relaxed}]
-        if fp or fn:
+        if fp or fn or version_errors:
             errors.append({"id": doc["id"], "file": doc["file"], "false_positives": fp, "false_negatives": fn,
-                           "not_in_text": missing})
+                           "not_in_text": missing, "version_errors": version_errors})
 
     metrics = {level: prf(c["tp"], c["fp"], c["fn"]) for level, c in counts.items()}
     result = {
         "config": args.config,
         "baguette_dir": str(baguette_dir),
         "explicit_only": args.explicit_only,
+        "exclude_os": args.exclude_os,
         "documents": len(docs),
         "missing_outputs": len(missing_files),
         "predicted_names": n_names,
@@ -423,6 +456,8 @@ def main():
     e.add_argument("--data", type=Path, default=DEFAULT_DIR, help=f"directory of prepare (default: {DEFAULT_DIR})")
     e.add_argument("--baguette-dir", type=Path, help="Baguette outputs (default: <data>/baguette/<config>)")
     e.add_argument("--explicit-only", action="store_true", help="leave out the implicit mentions")
+    e.add_argument("--exclude-os", action="store_true",
+                   help="leave the operating systems out of the gold, and do not count the names that match one")
     e.add_argument("--out", type=Path, help="JSON results (default: <data>/results/<config>.json)")
     e.set_defaults(func=evaluate)
 
