@@ -31,13 +31,19 @@ Usage, from the nlp_models folder (the defaults of --model and --nlstruct):
         --input-folder ../hackaton-sante-numerique-2026/data/pepr-hal-data/grobid/xml \
         --output-dir ./copalink_out \
         --csv-output ./copalink_results.csv \
+        --softcite-dir ./copalink_softcite \
         --brat-dir ./copalink_brat
 
-Without --output-dir the result is printed. --brat-dir also writes the .txt and
-.ann files of each paper, in the format of predict_files.py, to view in brat.
+Without --output-dir (or --softcite-dir) the result is printed. --softcite-dir also
+writes each paper in the JSON schema of the Softcite software-mentions service
+(<paper>.tei.software.json for a TEI input, <paper>.software.json otherwise), so
+that the tools written for Softcite, such as notebooks/softcite_analysis.ipynb,
+read it too. --brat-dir also writes the .txt and .ann files of each paper, in the
+format of predict_files.py, to view in brat.
 
-A run can be stopped (Ctrl+C) and restarted: the papers that already have a JSON
-file in --output-dir, or a successful row in --csv-output, are skipped.
+A run can be stopped (Ctrl+C) and restarted: the papers that already have their
+files in --output-dir and --softcite-dir are skipped. With neither, the papers
+with a successful row in --csv-output are skipped.
 
 The model runs on the GPU when there is one (CUDA, or MPS on a Mac), otherwise on
 the CPU; --device forces one. If a prediction fails on MPS, the client retries it
@@ -46,12 +52,14 @@ and runs the rest of the papers on the CPU.
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import re
 import sys
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 
 EXTENSIONS = (".txt", ".md", ".xml", ".json")
@@ -112,6 +120,26 @@ def read_file(path: Path) -> list[str]:
     return split_text(text)
 
 
+def read_biblio(path: Path) -> dict:
+    """Title, authors and DOI of a TEI document (GROBID), as in the 'biblio' of Softcite."""
+    root = ET.fromstring(path.read_bytes())
+    biblio = {}
+    title = root.find(f".//{TEI}titleStmt/{TEI}title")
+    if title is not None and clean("".join(title.itertext())):
+        biblio["title"] = clean("".join(title.itertext()))
+    authors = []
+    for name in root.iterfind(f".//{TEI}sourceDesc//{TEI}analytic/{TEI}author/{TEI}persName"):
+        parts = [clean("".join(part.itertext())) for part in name if part.tag in (f"{TEI}forename", f"{TEI}surname")]
+        if any(parts):
+            authors.append(" ".join(part for part in parts if part))
+    if authors:
+        biblio["authors"] = ", ".join(authors)
+    doi = root.find(f".//{TEI}sourceDesc//{TEI}idno[@type='DOI']")
+    if doi is not None and doi.text and doi.text.strip():
+        biblio["doi"] = doi.text.strip()
+    return biblio
+
+
 # Prediction.
 def parse_args():
     parser = argparse.ArgumentParser(description="CoPaLink article NER client")
@@ -121,6 +149,7 @@ def parse_args():
     source.add_argument("--input-folder", help="Folder with one file per paper")
     parser.add_argument("--output-dir", help="One JSON file per paper; default: print")
     parser.add_argument("--csv-output", help="CSV summary, one row per paper")
+    parser.add_argument("--softcite-dir", help="Also write each paper in the Softcite JSON schema")
     parser.add_argument("--brat-dir", help="Also write <paper>.txt and <paper>.ann for brat")
     parser.add_argument("--model", default="csebe_scibert_bioinfo_voc_iteration4_seed100.pt",
                         help="nlstruct checkpoint (default: the one of nlp_models)")  # fmt: skip
@@ -128,8 +157,8 @@ def parse_args():
     parser.add_argument("--device", default="auto",
                         help="auto (default: cuda, then mps, then cpu), cuda, cuda:1, mps or cpu")  # fmt: skip
     args = parser.parse_args()
-    if args.input_folder and not args.output_dir:
-        parser.error("--input-folder requires --output-dir")
+    if args.input_folder and not (args.output_dir or args.softcite_dir):
+        parser.error("--input-folder requires --output-dir or --softcite-dir")
     return args
 
 
@@ -241,6 +270,59 @@ def predict(model, model_name: str, name: str, paragraphs: list[str]) -> tuple[d
     }, doc
 
 
+def to_softcite(data: dict, path: Path | None, name: str, content: bytes) -> dict:
+    """A paper in the JSON schema of the Softcite software-mentions service.
+
+    Each entity is a mention of type 'software': the model has only one entity type,
+    Tool, and no version, publisher, URL or language. The context is the paragraph
+    (Softcite gives the sentence), and the offsets of 'software-name' are relative to
+    it. There are no 'mentionContextAttributes' and 'documentContextAttributes':
+    CoPaLink doesn't predict whether the software is used, created or shared."""
+    mentions = [
+        {
+            "type": "software",
+            "software-type": "software",
+            "software-name": {
+                "rawForm": entity["text"],
+                "normalizedForm": clean(entity["text"]),
+                "offsetStart": entity["begin"],
+                "offsetEnd": entity["end"],
+            },
+            "context": item["text"],
+        }
+        for item in data["paragraphs"]
+        for entity in item["entities"]
+    ]
+    result = {
+        "application": "copalink",
+        "version": data["model"],
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M%z"),
+        "md5": hashlib.md5(content).hexdigest().upper(),
+    }
+    if path is not None and path.suffix.lower() == ".xml":
+        result["biblio"] = read_biblio(path)
+    result.update({
+        "mentions": mentions,
+        "references": [],
+        "runtime": int(data["duration_seconds"] * 1000),
+        "file_name": name,
+    })  # fmt: skip
+    return result
+
+
+def softcite_name(path: Path | None, stem: str) -> str:
+    """The file name of Softcite: <paper>.tei.software.json for a TEI input."""
+    return f"{stem}.tei.software.json" if path is not None and path.suffix.lower() == ".xml" else f"{stem}.software.json"
+
+
+def write_json(path: Path, data):
+    """Written to a temporary file first: a run stopped while writing doesn't leave
+    a truncated JSON that a restart would take as done."""
+    path_tmp = path.with_name(path.name + ".tmp")
+    path_tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    path_tmp.replace(path)
+
+
 def write_brat(brat_dir: str, name: str, doc: dict):
     """<name>.txt and <name>.ann, in the format of predict_files.py."""
     with open(Path(brat_dir) / f"{name}.txt", "w", encoding="utf-8") as f:
@@ -259,11 +341,29 @@ def write_brat(brat_dir: str, name: str, doc: dict):
         f.write("\n".join(lines) + ("\n" if lines else ""))
 
 
-def load_done(csv_path, output_dir):
-    """Names of the papers already done: a JSON in output_dir or a successful CSV row."""
+def output_files(args, path: Path | None) -> list[Path]:
+    """The files written for a paper in --output-dir and --softcite-dir."""
+    name = path.name if path else "text"
+    stem = name.split(".")[0] if path else name
+    files = []
+    if args.output_dir:
+        files.append(Path(args.output_dir) / f"{name}.json")
+    if args.softcite_dir:
+        files.append(Path(args.softcite_dir) / softcite_name(path, stem))
+    return files
+
+
+def is_done(args, path: Path | None, csv_done: set) -> bool:
+    """A paper is done if all its files exist or, without output files, if the CSV
+    has a successful row for it."""
+    if path is None:
+        return False
+    files = output_files(args, path)
+    return all(f.exists() for f in files) if files else path.name in csv_done
+
+
+def load_csv_done(csv_path) -> set:
     done = set()
-    if output_dir:
-        done.update(p.name.removesuffix(".json") for p in Path(output_dir).glob("*.json"))
     if csv_path and Path(csv_path).exists():
         with open(csv_path, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
@@ -287,22 +387,19 @@ def run_one(args, model, path: Path | None) -> tuple[bool, str]:
     name = path.name if path else "text"
     row = {"document": name, "paragraphs": 0, "entities": 0, "unique_entities": 0, "runtime_sec": 0, "success": False}
     try:
+        content = args.text.encode("utf-8") if path is None else path.read_bytes()
         paragraphs = split_text(args.text) if path is None else read_file(path)
         if not paragraphs:
             raise ValueError("no paragraph found in the input")
         # brat and the doc id use the name without the extension(s).
         stem = name.split(".")[0] if path else name
         data, doc = predict(model, Path(args.model).name, stem, paragraphs)
-        output = json.dumps(data, ensure_ascii=False, indent=1)
         if args.output_dir:
-            # Written to a temporary file first: a run stopped while writing doesn't
-            # leave a truncated JSON that a restart would take as done.
-            path_out = Path(args.output_dir) / f"{name}.json"
-            path_tmp = path_out.with_suffix(".json.tmp")
-            path_tmp.write_text(output, encoding="utf-8")
-            path_tmp.replace(path_out)
-        else:
-            print(output)
+            write_json(Path(args.output_dir) / f"{name}.json", data)
+        if args.softcite_dir:
+            write_json(Path(args.softcite_dir) / softcite_name(path, stem), to_softcite(data, path, name, content))
+        if not (args.output_dir or args.softcite_dir):
+            print(json.dumps(data, ensure_ascii=False, indent=1))
         if args.brat_dir:
             write_brat(args.brat_dir, stem, doc)
         entities = sum(len(item["entities"]) for item in data["paragraphs"])
@@ -323,7 +420,7 @@ def run_one(args, model, path: Path | None) -> tuple[bool, str]:
 
 def main():
     args = parse_args()
-    for folder in (args.output_dir, args.brat_dir):
+    for folder in (args.output_dir, args.softcite_dir, args.brat_dir):
         if folder:
             os.makedirs(folder, exist_ok=True)
 
@@ -337,8 +434,8 @@ def main():
             for p in sorted(Path(args.input_folder).iterdir())
             if p.is_file() and p.suffix.lower() in EXTENSIONS
         ]
-    done = load_done(args.csv_output, args.output_dir)
-    todo = [p for p in papers if p is None or p.name not in done]
+    csv_done = load_csv_done(args.csv_output)
+    todo = [p for p in papers if not is_done(args, p, csv_done)]
 
     # Progress goes to stderr, so that a printed result can be piped.
     print(f"{len(todo)} documents to process ({len(papers) - len(todo)} already done)", file=sys.stderr)

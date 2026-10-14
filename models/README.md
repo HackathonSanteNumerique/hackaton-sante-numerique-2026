@@ -126,10 +126,11 @@ H=../hackaton-sante-numerique-2026      # this repo
 python $H/scripts/copalink_client.py \
   --input-folder $H/data/pepr-hal-data/grobid/xml \
   --output-dir $H/data/copalink --csv-output $H/data/copalink.csv \
+  --softcite-dir $H/data/copalink-softcite \
   --brat-dir $H/data/copalink-brat
 ```
 
-You can stop it with Ctrl+C and run the same command again: the papers that already have a JSON in `--output-dir` (or a successful row in the CSV) are skipped, and failed ones are retried.
+You can stop it with Ctrl+C and run the same command again: the papers that already have their files in `--output-dir` and `--softcite-dir` are skipped, and failed ones are retried.
 
 Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a few papers, and `--device` to choose the device (default `auto`).
 
@@ -140,7 +141,13 @@ Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a
   - each entity has `text`, `type` (`Tool`), `attributes`, `begin` / `end` offsets within the paragraph, and `confidence`
   - `mentions`: deduplicated by lower-cased text and type
   - `duration_seconds` and `model`
-- **CSV summary:** one row per paper. A second run skips the papers that already succeeded.
+- **`--softcite-dir`:** the same predictions in the **JSON schema of Softcite** (`<paper>.tei.software.json`, the file names of the Softcite output), so code written for Softcite reads them too. Each `Tool` entity is a mention with `type` and `software-type` set to `software`, and a `software-name` (`rawForm`, `normalizedForm`, `offsetStart` / `offsetEnd`). For TEI inputs, `biblio` holds the title, authors and DOI. Differences from Softcite:
+  - the `context` is the **paragraph**, not the sentence; the offsets are relative to it
+  - no `version`, `publisher`, `url` or `language`: CoPaLink only finds the name
+  - no `mentionContextAttributes` / `documentContextAttributes`: CoPaLink doesn't say whether the software is used, created or shared
+
+  The [starter notebook](../notebooks/softcite_analysis.ipynb) runs on it if you set `DATA_DIR` to that folder, except the cells about purposes and programming languages, which come out empty.
+- **CSV summary:** one row per paper.
 - **`--brat-dir`:** `<paper>.txt` + `<paper>.ann`, in the format of `predict_files.py`, to open in the brat viewer that comes with nlp_models.
 
 ---
