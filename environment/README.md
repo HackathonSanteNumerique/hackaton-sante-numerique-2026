@@ -88,6 +88,6 @@ Don't commit your API key: keep it in an environment variable, as above.
 |---|---|---|
 | **Softcite** | Hosted [🤗 Space](https://lfoppiano-softcite-software-mentions.hf.space/) | Nothing to install; see [`models/`](../models/README.md#softcite-software-mentions) |
 | **Baguette** | Hosted Modal endpoint | See [`models/`](../models/README.md#lm-inference) |
-| **CoPaLink / BioToFlow NER** | Your laptop or a Biosphere VM | Expected to run on CPU (to be confirmed) |
+| **CoPaLink** (paper-text NER) | Your laptop or a Biosphere VM | Runs on CPU, 15–30 s per paper; see [`models/`](../models/README.md#run-the-paper-text-ner-on-the-pepr-corpus) |
 
 Biosphere also has a few **GPU** VMs. Deploying a model on one (for example Softcite, which is a Docker image) is a hackathon topic in itself: see the ideas in the [main README](../README.md#ideas-if-you-dont-know-where-to-start).

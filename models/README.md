@@ -3,7 +3,7 @@
 | Tool | What it extracts | Trained on | Access |
 |---|---|---|---|
 | [**Softcite software-mentions**](#softcite-software-mentions) | software name, version, publisher, URL, language; *used / created / shared*; Wikidata linking | SoftCite | 🤗 Space (REST API), or Docker |
-| [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab + Zenodo (checkpoints in the repo) |
+| [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab ([nlp_models](https://gitlab.liris.cnrs.fr/sharefair/nlp_models)); run locally on CPU with [`copalink_client.py`](#run-the-paper-text-ner-on-the-pepr-corpus) |
 | [**Baguette**](#baguette-dataesr) (dataESR) | software and dataset mentions per paragraph, with role and type (generative LLM, JSON output) | distilled from Qwen3.5-27B | 🤗 bucket; served through [`lm-inference`](#lm-inference) |
 
 Plus [external data sources](#external-data) to enrich your results.
@@ -95,7 +95,49 @@ python main.py --name <workflow> --path_file_publication <article.txt> \
 
 The licences disagree: the GitLab repo says AGPL-3.0, Zenodo says GPL-3.0-or-later.
 
-On the PEPR corpus, only the **paper-text NER** applies, since there is no workflow code. Feed it the Markdown or text from `pepr-hal-data`. The model was trained on bioinformatics workflows, so expect a domain shift.
+On the PEPR corpus, only the **paper-text NER** applies, since there is no workflow code. The model was trained on bioinformatics workflows, so expect a domain shift.
+
+### Run the paper-text NER on the PEPR corpus
+
+[sharefair/nlp_models](https://gitlab.liris.cnrs.fr/sharefair/nlp_models) packages just that model (`csebe_scibert_bioinfo_voc_iteration4_seed100.pt`, 474 MB, via git-lfs). Its own `predict_files.py` only reads a folder of `.txt` files. [`scripts/copalink_client.py`](../scripts/copalink_client.py) reads the same inputs as the Baguette client, GROBID TEI included:
+
+- `.xml` (GROBID TEI): the `<p>` elements of the abstract, body and back; figure captions are left out
+- `.txt` / `.md`: blocks separated by blank lines
+- `.json`: a list of strings, or an object with `paragraphs` or `text`
+
+It runs on **CPU**: 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
+
+**Setup**, in the `copalink-experiments` Conda environment of nlp_models (see its README):
+
+```bash
+git lfs install
+git clone https://gitlab.liris.cnrs.fr/sharefair/nlp_models.git
+cd nlp_models
+git clone https://github.com/ClemenceS/nlstruct.git
+conda env create -f environment.yml && conda activate copalink-experiments
+```
+
+**Run**, from the `nlp_models` folder (the defaults of `--model` and `--nlstruct` point there):
+
+```bash
+H=../hackaton-sante-numerique-2026      # this repo
+python $H/scripts/copalink_client.py \
+  --input-folder $H/data/pepr-hal-data/grobid/xml \
+  --output-dir $H/data/copalink --csv-output $H/data/copalink.csv \
+  --brat-dir $H/data/copalink-brat
+```
+
+Other options: `--text "..."` for a quick test, and `--input-file a.xml b.xml` for a few papers.
+
+**Output:**
+
+- **JSON per paper** (`<file>.json`), shaped like the Baguette response:
+  - `paragraphs[]`: each with `index`, `text` and `entities[]`
+  - each entity has `text`, `type` (`Tool`), `attributes`, `begin` / `end` offsets within the paragraph, and `confidence`
+  - `mentions`: deduplicated by lower-cased text and type
+  - `duration_seconds` and `model`
+- **CSV summary:** one row per paper. A second run skips the papers that already succeeded.
+- **`--brat-dir`:** `<paper>.txt` + `<paper>.ann`, in the format of `predict_files.py`, to open in the brat viewer that comes with nlp_models.
 
 ---
 
