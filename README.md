@@ -32,15 +32,18 @@ Three questions to guide your two days:
 | 🤖 **Models & tools** | [`models/README.md`](models/README.md): Softcite software-mentions, CoPaLink, Baguette via `lm-inference`, OpenAlex, HAL API |
 | 📓 **Starter notebook** | [`notebooks/softcite_analysis.ipynb`](notebooks/softcite_analysis.ipynb): Softcite-style analysis of extracted mentions |
 | 👥 **Group work** | [`groups/`](groups/README.md): one folder per group, plus a template |
+| 💻 **Environment** | [`environment/`](environment/README.md): Biosphere Jupyter VM, opencode + Albert API |
 | 🎞️ **Opening slides** | [`presentation/`](presentation/README.md) |
 | 🤗 **PEPR data** | [HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data) |
 
 ## Getting started
 
-The environment is a [uv](https://docs.astral.sh/uv/) project. The hackathon VM also has Conda, Docker and Python.
+Work on your laptop or on a Jupyter VM on Biosphere, the IFB cloud: see [`environment/`](environment/README.md). **Ask to join the Biosphere group before the hackathon**, because requests are approved by hand.
+
+The repo is a [uv](https://docs.astral.sh/uv/) project:
 
 ```bash
-git clone git@github.com:ScienciaLAB/hackaton-sante-numerique-2026.git
+git clone https://github.com/ScienciaLAB/hackaton-sante-numerique-2026.git
 cd hackaton-sante-numerique-2026
 uv sync
 
@@ -51,7 +54,7 @@ uv run python scripts/download_pepr.py
 uv run jupyter lab notebooks/softcite_analysis.ipynb
 ```
 
-Then copy [`groups/_template`](groups/_template/README.md) to `groups/<your-group>` and start hacking. Vibe-coding is welcome ([opencode.ai](https://opencode.ai/) or your favourite assistant).
+Then copy [`groups/_template`](groups/_template/README.md) to `groups/<your-group>` and start hacking. Vibe-coding is welcome: [opencode + Albert API](environment/README.md#vibe-coding-with-opencode--albert-api) works on Biosphere, or use your favourite assistant.
 
 ## Ideas if you don't know where to start
 
@@ -67,6 +70,9 @@ Then copy [`groups/_template`](groups/_template/README.md) to `groups/<your-grou
 
 **🛠️ Tools**
 - Visualisation, dashboards, search over mentions…
+
+**🖥️ Infrastructure**
+- Deploy Softcite on a Biosphere GPU VM (or on Grid'5000) and document the procedure: how hard is it to access and use these services?
 
 ### Evaluation: an open question
 
@@ -114,6 +120,7 @@ A short presentation on Wednesday, even if "it didn't work": the **question**, t
 ```
 ├── datasets/        dataset catalogue
 ├── models/          models & tools
+├── environment/     Biosphere VM, opencode + Albert API
 ├── notebooks/       starter notebooks
 ├── scripts/         shared helpers (e.g. download_pepr.py)
 ├── data/            local downloads (git-ignored)
