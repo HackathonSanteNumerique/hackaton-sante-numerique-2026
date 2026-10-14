@@ -148,7 +148,7 @@ Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a
 
   The [starter notebook](../notebooks/softcite_analysis.ipynb) runs on it if you set `DATA_DIR` to that folder, except the cells about purposes and programming languages, which come out empty.
 - **CSV summary:** one row per paper.
-- **`--brat-dir`:** `<paper>.txt` + `<paper>.ann`, in the format of `predict_files.py`, to open in the brat viewer that comes with nlp_models.
+- **`--brat-dir`:** `<paper>.txt` + `<paper>.ann`, written exactly as `predict_files.py` does (nlstruct's `export_to_brat`, then `transform_ann.changeFormat`), to open in the brat viewer that comes with nlp_models. The offsets refer to that `.txt`, which is the text given to the model: for a TEI input, its paragraphs separated by blank lines.
 
 ---
 

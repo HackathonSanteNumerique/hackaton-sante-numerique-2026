@@ -38,8 +38,9 @@ Without --output-dir (or --softcite-dir) the result is printed. --softcite-dir a
 writes each paper in the JSON schema of the Softcite software-mentions service
 (<paper>.tei.software.json for a TEI input, <paper>.software.json otherwise), so
 that the tools written for Softcite, such as notebooks/softcite_analysis.ipynb,
-read it too. --brat-dir also writes the .txt and .ann files of each paper, in the
-format of predict_files.py, to view in brat.
+read it too. --brat-dir also writes the .txt and .ann files of each paper, as
+predict_files.py does (nlstruct's export_to_brat, then transform_ann.changeFormat),
+to view in brat.
 
 A run can be stopped (Ctrl+C) and restarted: the papers that already have their
 files in --output-dir and --softcite-dir are skipped. With neither, the papers
@@ -415,22 +416,42 @@ def write_json(path: Path, data):
     path_tmp.replace(path)
 
 
-def write_brat(brat_dir: str, name: str, doc: dict):
-    """<name>.txt and <name>.ann, in the format of predict_files.py."""
-    with open(Path(brat_dir) / f"{name}.txt", "w", encoding="utf-8") as f:
-        f.write(doc["text"])
-    lines, attribute_index = [], 1
-    for i, entity in enumerate(doc.get("entities", []), 1):
-        spans = ";".join(f"{f['begin']} {f['end']}" for f in sorted(entity["fragments"], key=lambda f: f["begin"]))
-        surface = " ".join(doc["text"][f["begin"] : f["end"]] for f in entity["fragments"]).replace("\n", " ")
-        entity_type, attributes = split_label(entity["label"])
-        lines.append(f"T{i}\t{entity_type} {spans}\t{surface}")
-        for attribute in attributes:
-            key, value = attribute.split(":", 1)
-            lines.append(f"A{attribute_index}\t{key} T{i}" + (f" {value}" if value else ""))
-            attribute_index += 1
-    with open(Path(brat_dir) / f"{name}.ann", "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + ("\n" if lines else ""))
+def write_brat(brat_dir: str, doc: dict):
+    """<doc_id>.txt and <doc_id>.ann, exactly as predict_files.py writes them:
+    nlstruct's export_to_brat, then transform_ann.changeFormat."""
+    from nlstruct.datasets import export_to_brat
+
+    export_to_brat([doc], filename_prefix=brat_dir, overwrite_txt=True, overwrite_ann=True)
+    change_format(Path(brat_dir) / f"{doc['doc_id']}.ann")
+
+
+def change_format(path: Path):
+    """transform_ann.changeFormat of nlp_models (in the nlstruct clone, not in the
+    nlstruct package), for one .ann file: export_to_brat writes the labels as a
+    list, such as "T1\t['Tool'] 10 16\tsamtools"; this keeps the entity type, and
+    writes the attribute of a two-label entity on its own line."""
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    new_lines = []
+    idx_a = 1
+    for line in lines:
+        try:
+            type_e_un = re.search(r"\['.*'\]", line).group(0)
+            type_e = type_e_un.replace("['", "").replace("']", "")
+            type_e = [t.replace("'", "").strip() for t in type_e.split(",")]
+
+            new_line = line.split(type_e_un)[0]
+            if len(type_e) == 1:
+                new_lines.append(new_line + type_e[0] + line.split(type_e_un)[-1])
+            elif type_e[-1].find(":") != -1:
+                if type_e[0].find(":") == -1:
+                    new_lines.append(new_line + type_e[0] + line.split(type_e_un)[-1])
+            else:
+                new_lines.append(new_line + type_e[-1] + line.split(type_e_un)[-1])
+                new_lines.append(f"A{idx_a}\t{type_e[0].split(':')[0]} {line.split()[0]}\n")
+                idx_a += 1
+        except Exception:  # noqa: BLE001, as in changeFormat
+            new_lines.append(line)
+    path.write_text("".join(new_lines), encoding="utf-8")
 
 
 def output_files(args, path: Path | None) -> list[Path]:
@@ -493,7 +514,7 @@ def run_one(args, model, path: Path | None) -> tuple[bool, str]:
         if not (args.output_dir or args.softcite_dir):
             print(json.dumps(data, ensure_ascii=False, indent=1))
         if args.brat_dir:
-            write_brat(args.brat_dir, stem, doc)
+            write_brat(args.brat_dir, doc)
         entities = sum(len(item["entities"]) for item in data["paragraphs"])
         row.update({
             "paragraphs": data["num_paragraphs"], "entities": entities,
