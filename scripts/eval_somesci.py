@@ -1,4 +1,4 @@
-"""Evaluate Baguette on SoMeSci (https://huggingface.co/datasets/SoFairOA/somesci_dataset).
+"""Evaluate Baguette and Softcite on SoMeSci (https://huggingface.co/datasets/SoFairOA/somesci_dataset).
 
 Documentation: evaluation/README.md
 
@@ -17,32 +17,41 @@ Three steps, one config at a time (pubmed_fulltext, plos_methods, plos_sentences
         --output-dir data/somesci/baguette/plos_sentences \\
         --csv-output data/somesci/baguette/plos_sentences.csv --threads 4 --no-analyze
 
+   or run Softcite (the text service of the Hugging Face Space; resumable):
+    uv run python scripts/eval_somesci.py softcite --config plos_sentences
+
 3. Score the outputs:
-    uv run python scripts/eval_somesci.py evaluate --config plos_sentences
+    uv run python scripts/eval_somesci.py evaluate --config plos_sentences                    # Baguette
+    uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool softcite
 
 Gold software are the APPLICATION, PLUGIN, PROGRAMMINGENVIRONMENT and OPERATINGSYSTEM
-entities; SOFTWARECOREFERENCE ("the software") is left out. Baguette gives names without
-offsets, so two levels are scored, micro-averaged, with one-to-one matching:
+entities; SOFTWARECOREFERENCE ("the software") is left out. Two levels are scored,
+micro-averaged, with one-to-one matching:
 
 - document: the software of the doc (the dataset's `software` field) against the unique
   predicted names. exact: same normalised name (or alternative name / abbreviation);
   relaxed: the words of one name are all in the other ("SPSS" ~ "IBM SPSS Statistics").
-- mention: every occurrence of a predicted name in the text is a predicted span, compared
-  with the gold spans. strict: same offsets; overlap: the spans overlap. A name that is not
+- mention: predicted spans against the gold spans. Softcite gives offsets; Baguette does not,
+  so every occurrence of one of its names in the text is a predicted span. strict: same offsets; overlap: the spans overlap. A name that is not
   in the text counts as one false positive. Predicted spans that only hit an abbreviation or
   alternative name are not counted.
 
 Versions are scored on the software found (relaxed): the `version` field and the numbers of the
 predicted name, against the gold versions. --exclude-os leaves the operating systems out.
 
-SoMeSci on Hugging Face has no mention types (usage, creation...), so the Baguette roles are
-not scored.
+SoMeSci on Hugging Face has no mention types (usage, creation...), so the roles (Baguette) and
+the used / created / shared attributes (Softcite) are not scored.
 """
 
 import argparse
 import json
 import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import pandas as pd
@@ -51,6 +60,8 @@ from huggingface_hub import hf_hub_download
 REPO_ID = "SoFairOA/somesci_dataset"
 CONFIGS = ["pubmed_fulltext", "plos_methods", "plos_sentences"]  # "default" is pubmed_fulltext
 DEFAULT_DIR = Path(__file__).resolve().parent.parent / "data" / "somesci"
+SOFTCITE_URL = "https://lfoppiano-softcite-software-mentions.hf.space"
+TOOLS = ["baguette", "softcite"]
 
 LABELS = ["O"] + [
     f"{prefix}-{entity}"
@@ -178,6 +189,82 @@ def prepare(args):
               f"-> {gold_dir / f'{config}.jsonl'}, {input_dir}")
 
 
+# ---------------------------------------------------------------- softcite
+
+
+def softcite_request(url, text, timeout, retries, wait):
+    """Mentions of a text by the Softcite service; retries when the service is busy (503) or fails."""
+    data = urllib.parse.urlencode({"text": text}).encode()
+    request = urllib.request.Request(f"{url.rstrip('/')}/service/processSoftwareText", data=data)
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                body = response.read()
+            return json.loads(body) if body.strip() else {"mentions": []}
+        except urllib.error.HTTPError as error:
+            if error.code < 500 or attempt == retries:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == retries:
+                raise
+        time.sleep(wait)
+
+
+def shift_mention(mention, offset, text):
+    """Offsets of a mention of a paragraph, made relative to the document. A name whose offsets do
+    not fall on its raw form is searched for around them."""
+    for key in ("software-name", "version", "publisher", "url", "language"):
+        component = mention.get(key)
+        if not isinstance(component, dict) or not isinstance(component.get("offsetStart"), int):
+            continue
+        start, end = component["offsetStart"] + offset, component["offsetEnd"] + offset
+        raw = component.get("rawForm") or ""
+        if raw and text[start:end] != raw:
+            found = text.find(raw, max(0, start - 50))
+            if found >= 0:
+                start, end = found, found + len(raw)
+        component["offsetStart"], component["offsetEnd"] = start, end
+    return mention
+
+
+def softcite_document(doc, config, args):
+    paragraphs = split_paragraphs(doc["text"]) if config == "pubmed_fulltext" else [doc["text"]]
+    mentions, cursor, response = [], 0, {}
+    for paragraph in paragraphs:
+        start = doc["text"].find(paragraph, cursor)
+        if start < 0:
+            start = doc["text"].find(paragraph)
+        cursor = start + len(paragraph)
+        response = softcite_request(args.endpoint, paragraph, args.timeout, args.retries, args.retry_wait)
+        mentions += [shift_mention(m, start, doc["text"]) for m in response.get("mentions", [])]
+    return {"application": response.get("application"), "version": response.get("version"),
+            "id": doc["id"], "paragraphs": len(paragraphs), "mentions": mentions}
+
+
+def softcite(args):
+    """Runs Softcite on the documents of a config; the documents already done are skipped."""
+    docs = [json.loads(line) for line in (args.data / "gold" / f"{args.config}.jsonl").open(encoding="utf-8")]
+    out_dir = args.output_dir or args.data / "softcite" / args.config
+    out_dir.mkdir(parents=True, exist_ok=True)
+    todo = [d for d in docs if not (out_dir / f"{d['file']}.software.json").exists()]
+    print(f"{args.config}: {len(todo)} documents to process ({len(docs) - len(todo)} already done)")
+    failed = 0
+    with ThreadPoolExecutor(max_workers=args.threads) as pool:
+        futures = {pool.submit(softcite_document, doc, args.config, args): doc for doc in todo}
+        for n, future in enumerate(as_completed(futures), 1):
+            doc = futures[future]
+            try:
+                result = future.result()
+            except Exception as error:  # noqa: BLE001 - the document is retried on the next run
+                failed += 1
+                print(f"[{n}/{len(todo)}] {doc['file']}: FAILED ({error})")
+                continue
+            path = out_dir / f"{doc['file']}.software.json"
+            path.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+            print(f"[{n}/{len(todo)}] {doc['file']}: {len(result['mentions'])} mentions")
+    print(f"{len(todo) - failed} done, {failed} failed -> {out_dir}" + (" (run again to retry)" if failed else ""))
+
+
 # ---------------------------------------------------------------- evaluate
 
 
@@ -257,15 +344,27 @@ def locate(predictions, text):
             spans.extend((s, e, name) for s, e in found)
         else:
             missing.append(name)
+    return keep_longest(spans), missing
+
+
+def keep_longest(spans):
+    """Spans without overlaps: of two overlapping spans, the longer one is kept."""
     kept = []
     for s, e, name in sorted(spans, key=lambda x: (x[0] - x[1], x[0])):
         if all(e <= ks or s >= ke for ks, ke, _ in kept):
             kept.append((s, e, name))
-    return sorted(kept), missing
+    return sorted(kept)
 
 
-def load_predictions(path, explicit_only):
-    """(name, version) of the software mentions, unique by normalised name."""
+def add_unique(unique, name, version):
+    """Names unique by normalised form; the first mention is kept, or the first one with a version."""
+    key = normalise(name)
+    if key and (key not in unique or (version and not unique[key][1])):
+        unique[key] = (name, version)
+
+
+def load_baguette(path, explicit_only):
+    """(name, version) of the software mentions, unique by normalised name. No offsets."""
     data = json.loads(path.read_text(encoding="utf-8"))
     unique = {}
     for paragraph in data.get("paragraphs", []):
@@ -275,10 +374,31 @@ def load_predictions(path, explicit_only):
             if explicit_only and mention.get("explicit_or_implicit") == "implicit":
                 continue
             version = mention.get("version") if isinstance(mention.get("version"), str) else None
-            key = normalise(mention["name"])
-            if key and (key not in unique or (version and not unique[key][1])):
-                unique[key] = (mention["name"], version)
-    return list(unique.values())
+            add_unique(unique, mention["name"], version)
+    return list(unique.values()), None
+
+
+def load_softcite(path, explicit_only):
+    """(name, version) of the software mentions, unique by normalised name, and their spans."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    unique, spans = {}, []
+    for mention in data.get("mentions", []):
+        if mention.get("type", "software") != "software":
+            continue
+        if explicit_only and mention.get("software-type") == "implicit":
+            continue
+        name = mention.get("software-name") or {}
+        if not isinstance(name.get("rawForm"), str):
+            continue
+        version = (mention.get("version") or {}).get("rawForm")
+        add_unique(unique, name["rawForm"], version if isinstance(version, str) else None)
+        if isinstance(name.get("offsetStart"), int) and isinstance(name.get("offsetEnd"), int):
+            spans.append((name["offsetStart"], name["offsetEnd"], name["rawForm"]))
+    return list(unique.values()), keep_longest(spans)
+
+
+LOADERS = {"baguette": load_baguette, "softcite": load_softcite}
+OUTPUT_NAMES = {"baguette": ["{}.json.json", "{}.json"], "softcite": ["{}.software.json"]}
 
 
 def prf(tp, fp, fn):
@@ -288,10 +408,10 @@ def prf(tp, fp, fn):
     return {"precision": round(p, 4), "recall": round(r, 4), "f1": round(f, 4), "tp": tp, "fp": fp, "fn": fn}
 
 
-def output_file(baguette_dir, name):
-    for candidate in (f"{name}.json.json", f"{name}.json"):
-        if (baguette_dir / candidate).exists():
-            return baguette_dir / candidate
+def output_file(predictions_dir, name, tool):
+    for pattern in OUTPUT_NAMES[tool]:
+        if (predictions_dir / pattern.format(name)).exists():
+            return predictions_dir / pattern.format(name)
     return None
 
 
@@ -319,7 +439,7 @@ def gold_software(doc):
 def evaluate(args):
     ignored_types = {"OPERATINGSYSTEM"} if args.exclude_os else set()
     gold_path = args.data / "gold" / f"{args.config}.jsonl"
-    baguette_dir = args.baguette_dir or args.data / "baguette" / args.config
+    predictions_dir = args.predictions_dir or args.data / args.tool / args.config
     docs = [json.loads(line) for line in gold_path.open(encoding="utf-8")]
 
     counts = defaultdict(Counter)
@@ -329,12 +449,12 @@ def evaluate(args):
     errors = []
 
     for doc in docs:
-        path = output_file(baguette_dir, doc["file"])
+        path = output_file(predictions_dir, doc["file"], args.tool)
         if path is None:
             missing_files.append(doc["id"])
-            predictions = []
+            predictions, predicted_spans = [], []
         else:
-            predictions = load_predictions(path, args.explicit_only)
+            predictions, predicted_spans = LOADERS[args.tool](path, args.explicit_only)
         n_names += len(predictions)
 
         # Document level
@@ -375,7 +495,11 @@ def evaluate(args):
         # Mention level
         gold_spans = [e for e in doc["entities"] if e["label"] in SOFTWARE_TYPES - ignored_types]
         alias_spans = [e for e in doc["entities"] if e["label"] in ALIAS_TYPES | ignored_types]
-        spans, missing = locate(predictions, doc["text"])
+        # Softcite gives the offsets; for Baguette, the names are searched in the text
+        if predicted_spans is None:
+            spans, missing = locate(predictions, doc["text"])
+        else:
+            spans, missing = predicted_spans, []
         not_in_text += len(missing)
         spans = [s for s in spans
                  if any(s[0] < g["end"] and g["start"] < s[1] for g in gold_spans)
@@ -404,7 +528,8 @@ def evaluate(args):
     metrics = {level: prf(c["tp"], c["fp"], c["fn"]) for level, c in counts.items()}
     result = {
         "config": args.config,
-        "baguette_dir": str(baguette_dir),
+        "tool": args.tool,
+        "predictions_dir": str(predictions_dir),
         "explicit_only": args.explicit_only,
         "exclude_os": args.exclude_os,
         "documents": len(docs),
@@ -421,7 +546,7 @@ def evaluate(args):
         "errors": errors,
     }
 
-    print(f"{args.config}: {len(docs)} documents, {len(missing_files)} without Baguette output, "
+    print(f"{args.tool} on {args.config}: {len(docs)} documents, {len(missing_files)} without output, "
           f"{n_names} predicted names ({not_in_text} not found in the text)")
     print(f"{'level':<16} {'P':>7} {'R':>7} {'F1':>7} {'TP':>6} {'FP':>6} {'FN':>6}")
     for level in ("doc_exact", "doc_relaxed", "mention_strict", "mention_overlap", "version"):
@@ -434,7 +559,7 @@ def evaluate(args):
         men_r = result["recall_by_type"]["mention_overlap"].get(t, float("nan"))
         print(f"  {t:<24} {doc_r:.3f} / {men_r:.3f}")
 
-    out = args.out or args.data / "results" / f"{args.config}.json"
+    out = args.out or args.data / "results" / args.tool / f"{args.config}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"-> {out}")
@@ -451,14 +576,28 @@ def main():
                    help="local copy of the dataset (<config>/test-00000-of-00001.parquet); default: download it")
     p.set_defaults(func=prepare)
 
-    e = sub.add_parser("evaluate", help="score the Baguette outputs of one config")
+    s = sub.add_parser("softcite", help="run Softcite on the documents of one config")
+    s.add_argument("--config", required=True, choices=CONFIGS)
+    s.add_argument("--data", type=Path, default=DEFAULT_DIR, help=f"directory of prepare (default: {DEFAULT_DIR})")
+    s.add_argument("--endpoint", default=SOFTCITE_URL, help=f"Softcite service (default: {SOFTCITE_URL})")
+    s.add_argument("--output-dir", type=Path, help="Softcite outputs (default: <data>/softcite/<config>)")
+    s.add_argument("--threads", type=int, default=2, help="parallel requests (default: 2, the Space is shared)")
+    s.add_argument("--timeout", type=int, default=300)
+    s.add_argument("--retries", type=int, default=5, help="retries on 5xx errors and timeouts")
+    s.add_argument("--retry-wait", type=int, default=10, help="seconds between retries")
+    s.set_defaults(func=softcite)
+
+    e = sub.add_parser("evaluate", help="score the outputs of a tool on one config")
     e.add_argument("--config", required=True, choices=CONFIGS)
+    e.add_argument("--tool", choices=TOOLS, default="baguette", help="the tool to score (default: baguette)")
     e.add_argument("--data", type=Path, default=DEFAULT_DIR, help=f"directory of prepare (default: {DEFAULT_DIR})")
-    e.add_argument("--baguette-dir", type=Path, help="Baguette outputs (default: <data>/baguette/<config>)")
-    e.add_argument("--explicit-only", action="store_true", help="leave out the implicit mentions")
+    e.add_argument("--predictions-dir", "--baguette-dir", type=Path,
+                   help="outputs of the tool (default: <data>/<tool>/<config>)")
+    e.add_argument("--explicit-only", action="store_true",
+                   help="leave out the implicit mentions (Baguette: implicit, Softcite: software-type implicit)")
     e.add_argument("--exclude-os", action="store_true",
                    help="leave the operating systems out of the gold, and do not count the names that match one")
-    e.add_argument("--out", type=Path, help="JSON results (default: <data>/results/<config>.json)")
+    e.add_argument("--out", type=Path, help="JSON results (default: <data>/results/<tool>/<config>.json)")
     e.set_defaults(func=evaluate)
 
     args = parser.parse_args()

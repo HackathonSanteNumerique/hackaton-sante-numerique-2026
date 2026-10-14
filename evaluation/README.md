@@ -1,12 +1,12 @@
-# Evaluation: Baguette on SoMeSci
+# Evaluation: Baguette and Softcite on SoMeSci
 
-[`scripts/eval_somesci.py`](../scripts/eval_somesci.py) measures how well [Baguette](../models/README.md#baguette-dataesr) finds software mentions, with precision, recall and F1 against the human annotations of [SoMeSci](../datasets/README.md#somesci). It uses the version converted by SoFAIR on 🤗 [`SoFairOA/somesci_dataset`](https://huggingface.co/datasets/SoFairOA/somesci_dataset).
+[`scripts/eval_somesci.py`](../scripts/eval_somesci.py) measures how well [Baguette](../models/README.md#baguette-dataesr) and [Softcite](../models/README.md#softcite-software-mentions) find software mentions, with precision, recall and F1 against the human annotations of [SoMeSci](../datasets/README.md#somesci). It uses the version converted by SoFAIR on 🤗 [`SoFairOA/somesci_dataset`](https://huggingface.co/datasets/SoFairOA/somesci_dataset).
 
 Three steps, one config at a time:
 
 1. `prepare`: write the gold annotations and the Baguette inputs.
-2. Run Baguette with the batch client of [lm-inference](../models/README.md#lm-inference).
-3. `evaluate`: score the outputs.
+2. Run the tools: Baguette with the batch client of [lm-inference](../models/README.md#lm-inference), Softcite with the `softcite` command of the script.
+3. `evaluate --tool baguette|softcite`: score the outputs. Both tools get the same metrics, so they can be compared.
 
 ## The data
 
@@ -22,7 +22,7 @@ The `default` config is a copy of `pubmed_fulltext`.
 
 - **Annotations:** BIO tags on tokens, with the character offset of each token, plus a `software` list per document: name, type, alternative name, abbreviation, version, developer, URL…
 - **Software types:** `APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM`, `SOFTWARECOREFERENCE`.
-- **No mention types:** this version has no usage / creation / deposition / mention, so Baguette's `role` is not scored. The original SoMeSci (brat files on Zenodo) has them.
+- **No mention types:** this version has no usage / creation / deposition / mention, so neither Baguette's `role` nor Softcite's `used` / `created` / `shared` is scored. The original SoMeSci (brat files on Zenodo) has them.
 - **Gated:** accept the conditions on the dataset page. To download with the script, log in with `hf auth login`, using a token allowed to read gated repositories (fine-grained tokens: tick *public gated repositories*). Or download the parquet files yourself and use `--source`.
 
 ## 1. Prepare
@@ -38,12 +38,12 @@ uv run python scripts/eval_somesci.py prepare --config plos_sentences   # only s
 
 It writes:
 
-- **`gold/<config>.jsonl`:** one document per line, with `id`, `file` (the file name used for the document), `text`, `entities` (`start`, `end`, `label`, `text`) and `software`.
+- **`gold/<config>.jsonl`:** one document per line, with `id`, `file` (the file name used for the document), `text`, `entities` (`start`, `end`, `label`, `text`) and `software`. The `softcite` command reads its documents from here.
 - **`input/<config>/<file>.json`:** the Baguette input, `{"paragraphs": [...]}`. Sentences and methods sections are one paragraph each. Full papers are split at blank lines, or at line breaks when there is none. The server splits the long paragraphs into pieces of about 200 tokens.
 
 It prints, per config, the number of documents and entities, and the number of span/token mismatches, which should be 0.
 
-## 2. Run Baguette
+## 2a. Run Baguette
 
 Use the batch client of lm-inference, with the `--no-analyze` option (the article-level step is not needed):
 
@@ -61,10 +61,34 @@ done
 - **Resuming:** `--csv-output` makes the run resumable. A second run skips the documents that succeeded and retries the failed ones.
 - **Output:** one `<file>.json.json` per document.
 
+## 2b. Run Softcite
+
+The `softcite` command sends the text of each document to the text service of Softcite (`/service/processSoftwareText`), by default the hackathon [🤗 Space](../models/README.md#softcite-software-mentions):
+
+```bash
+for c in plos_sentences plos_methods pubmed_fulltext; do
+  uv run python scripts/eval_somesci.py softcite --config $c
+done
+```
+
+| Option | Default | |
+|---|---|---|
+| `--config` | (required) | the config |
+| `--data` | `data/somesci` | the `--out` folder of `prepare` |
+| `--endpoint` | the 🤗 Space | another Softcite service, e.g. `http://localhost:8060` for a Docker instance |
+| `--output-dir` | `<data>/softcite/<config>` | where to write |
+| `--threads` | 2 | parallel requests; keep it low, the Space is shared by everyone |
+| `--timeout`, `--retries`, `--retry-wait` | 300 s, 5, 10 s | a busy Space answers `503`: the request is sent again |
+
+- **What is sent:** a sentence or a methods section in one request. A full paper is sent paragraph by paragraph, split as for Baguette, and the offsets are moved back to the whole text. If an offset does not fall on its name, the name is searched for near it.
+- **Resuming:** documents already done are skipped. A document whose request failed is not written, so running the command again retries it.
+- **Output:** one `<file>.software.json` per document, with the `mentions` of Softcite (the JSON schema of the service) and offsets in the text of the document.
+
 ## 3. Evaluate
 
 ```bash
-uv run python scripts/eval_somesci.py evaluate --config plos_sentences
+uv run python scripts/eval_somesci.py evaluate --config plos_sentences                     # Baguette
+uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool softcite
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --explicit-only
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --exclude-os
 ```
@@ -72,18 +96,19 @@ uv run python scripts/eval_somesci.py evaluate --config plos_sentences --exclude
 | Option | Default | |
 |---|---|---|
 | `--config` | (required) | `plos_sentences`, `plos_methods` or `pubmed_fulltext` |
+| `--tool` | `baguette` | `baguette` or `softcite` |
 | `--data` | `data/somesci` | the `--out` folder of `prepare` |
-| `--baguette-dir` | `<data>/baguette/<config>` | the Baguette outputs |
-| `--explicit-only` | off | leave out the mentions Baguette marks `implicit` |
+| `--predictions-dir` | `<data>/<tool>/<config>` | the outputs of the tool (`--baguette-dir` still works) |
+| `--explicit-only` | off | leave out the implicit mentions: `implicit` for Baguette, `software-type` `implicit` for Softcite |
 | `--exclude-os` | off | leave the operating systems out of the gold; a predicted name that matches one is not counted, neither as a true nor as a false positive |
-| `--out` | `<data>/results/<config>.json` | the JSON results |
+| `--out` | `<data>/results/<tool>/<config>.json` | the JSON results |
 
-A document without a Baguette output counts as one with no prediction. The number of these is printed, and their ids are in the results.
+A document without an output of the tool counts as one with no prediction. The number of these is printed, and their ids are in the results.
 
 ### What is compared
 
 - **Gold software:** the `APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT` and `OPERATINGSYSTEM` entities. `SOFTWARECOREFERENCE` ("the software", "this tool") is left out.
-- **Predictions:** the `name` of every software mention in `paragraphs[].software`, made unique per document. When a name is repeated, the first mention is kept, or the first one with a `version`.
+- **Predictions:** the names of the software mentions, made unique per document: for Baguette, the `name` of every mention in `paragraphs[].software`; for Softcite, the `rawForm` of `software-name` of every mention. When a name is repeated, the first mention is kept, or the first one with a `version`.
 - **Normalisation:** lower case, whitespace collapsed, punctuation removed at both ends.
 
 Matching is one-to-one and the scores are micro-averaged over all the documents.
@@ -101,21 +126,23 @@ Predicting a software under two of its names, such as `Statistical Parametric Ma
 
 ### Mention level
 
-Baguette gives names without positions. The script searches the text for each predicted name, case-insensitively and as whole words; every occurrence is a predicted span. If the name is not in the text, it searches again without the version (`SPSS v25` → `SPSS`). When two spans overlap, the longer one is kept.
+**Softcite** gives the offsets of each name: its spans are used as they are. When two of them overlap, the longer one is kept.
+
+**Baguette** gives names without positions. The script searches the text for each predicted name, case-insensitively and as whole words; every occurrence is a predicted span. If the name is not in the text, it searches again without the version (`SPSS v25` → `SPSS`). When two spans overlap, the longer one is kept.
 
 | Metric | A predicted span matches a gold span when |
 |---|---|
 | `mention_strict` | they have the same offsets |
 | `mention_overlap` | they overlap |
 
-- **Names not in the text:** a name that is not found in the text, even without its version, counts as one false positive. Such names are paraphrased or invented.
+- **Names not in the text** (Baguette): a name that is not found in the text, even without its version, counts as one false positive. Such names are paraphrased or invented.
 - **Abbreviations:** a span that only falls on an annotated abbreviation or alternative name, such as `SPM` in `Statistical Parametric Mapping (SPM)`, is not counted.
 
 ### Versions
 
 `version` is scored only on the software found at document level (relaxed match). For each of them, the predicted versions are compared with the gold versions of the software:
 
-- **Predicted versions:** the `version` field of the mention, plus the numbers of the predicted name that are not in the name of the software. `SPSS 22` gives `22`, `MATLAB R2014a` gives `2014a`, but `3D Slicer` gives nothing.
+- **Predicted versions:** the version of the mention (Baguette: `version`; Softcite: the `rawForm` of `version`), plus the numbers of the predicted name that are not in the name of the software. `SPSS 22` gives `22`, `MATLAB R2014a` gives `2014a`, but `3D Slicer` gives nothing.
 - **Normalisation:** a `version`, `ver.`, `v`, `release`, `build` or `r` prefix is removed, so `Version 2.15`, `v2.15` and `2.15` are the same.
 - **Counts:** a predicted version that is a gold version is a true positive, the other predicted versions are false positives, and the gold versions not predicted are false negatives.
 
@@ -126,7 +153,7 @@ A version given for a software that SoMeSci annotates without one is a false pos
 The script prints a summary and a table:
 
 ```
-plos_sentences: 677 documents, <n> without Baguette output, <n> predicted names (<n> not found in the text)
+baguette on plos_sentences: 677 documents, <n> without output, <n> predicted names (<n> not found in the text)
 level                  P       R      F1     TP     FP     FN
 doc_exact          ...
 doc_relaxed        ...
@@ -146,7 +173,9 @@ The JSON results have:
 
 ## Results
 
-### `plos_sentences`
+The JSON results are in `data/somesci/results/<tool>/<config>.json`. The Softcite results will be added here, next to the Baguette ones.
+
+### Baguette on `plos_sentences`
 
 677 sentences. Baguette gave 753 unique names; 17 of them are not in the text.
 
@@ -177,7 +206,7 @@ The JSON results have:
 
 The `errors` of the results JSON tell real misses apart from differences of name that relaxed matching does not catch.
 
-### `pubmed_fulltext`
+### Baguette on `pubmed_fulltext`
 
 97 full papers. Baguette gave 208 unique names, about 2 per paper; 11 of them are not in the text. The gold has 285 software (about 3 per paper) and 414 mentions.
 
@@ -214,4 +243,5 @@ The `plos_methods` results will be added here.
 - **Lexical identity:** SoMeSci tells software apart by name, so `SPSS` and `IBM SPSS Statistics` in one paper are two gold software. Finding only one of them gives a false negative.
 - **Short names:** at mention level, a short name such as `R` matches every standalone `R` of the text. That can lower the mention-level precision.
 - **Mentions lost between pieces:** the server cuts long paragraphs into pieces of about 200 tokens, and a mention split between two pieces can be lost.
-- **No offsets:** the mention level is an approximation. It assumes Baguette finds every occurrence of a name it gives once.
+- **No offsets for Baguette:** its mention level is an approximation. It assumes Baguette finds every occurrence of a name it gives once. Softcite's mention level uses its own offsets, so it is exact. Compare the two tools at document level first.
+- **Softcite on the 🤗 Space:** the Space is shared and may be slower or busy; scores do not depend on it, but run time does. The version of the service (`application`, `version` in each output) is in the outputs.
