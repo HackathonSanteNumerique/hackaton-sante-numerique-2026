@@ -109,14 +109,39 @@ Recall by type, document level (relaxed):
 **Differences between the tools:**
 
 - **Softcite is better on all three configs:** F1 0.90 against 0.82 on sentences, 0.81 against 0.54 on methods sections, 0.82 against 0.53 on full papers.
-- **Longer texts hurt Baguette much more.** From sentences to longer texts, Softcite loses 0.08 to 0.10 of F1, Baguette about 0.28. Both tools got the same inputs: one block per sentence or methods section, the same paragraphs for the full papers. Softcite segments each text itself, while Baguette's server cuts long texts into pieces of about 200 tokens and the model misses mentions in long inputs. That points at how Baguette handles longer inputs, to be confirmed in the `errors`.
+- **Longer texts hurt Baguette much more.** From sentences to longer texts, Softcite loses 0.08 to 0.10 of F1, Baguette about 0.28. Both tools got the same inputs. The cutting of long inputs into pieces by Baguette's server is probably not the main cause: on the PEPR corpus, Baguette gives about the same share of names on paragraphs it cut as on the others (see [Is the comparison fair?](#is-the-comparison-fair)). The more likely cause is that Baguette gives fewer names per passage than are annotated: on PEPR, about half as many as Softcite. That matters little on a sentence chosen for its software mention, and a lot on a methods section that names several. This is still a hypothesis, to be confirmed in the `errors`.
 - **Recall is Baguette's main problem.** On sentences, precision is about the same (0.93 against 0.92) and only recall differs (0.88 against 0.75). On longer texts, Baguette gives far fewer names than there are gold software (719 for 1,142 on methods sections, 208 for 285 on full papers), and its recall falls below 0.46. Softcite gives about as many names as there are gold software, and keeps recall above 0.8.
 - **Versions are where the gap is largest:** F1 0.89 to 0.94 for Softcite, 0.38 to 0.57 for Baguette, with the same metric. So the weak version scores of Baguette come from Baguette, not from the way versions are scored.
 - **By type:** Softcite finds most applications (0.86–0.94) and programming environments (0.71–0.99) in every config. Plugins are the weakest type of both tools on sentences (about 0.7).
 - **Operating systems:** neither tool gives them (recall 0.10 at most). This is a choice of SoMeSci, which annotates them as software, more than a fault of the tools. `--exclude-os` gives the scores without them.
 - **Exact names:** Softcite loses less from relaxed to exact matching (e.g. 0.90 → 0.82 on sentences) than Baguette (0.82 → 0.68): its names are closer to the annotated forms.
 - **Mention level:** Softcite gives offsets, so its mention level is exact (F1 0.79–0.91, overlap). Baguette gives only names, and its mention level comes from searching them in the text (0.51–0.77). Compare the tools at document level first.
-- **Training data:** Softcite is trained on the Softcite corpus (biomedical and economics papers), close to the PLoS and PMC papers of SoMeSci. Baguette is distilled from an LLM, on English and French papers. Neither was trained on SoMeSci, as far as we know.
+- **Training data:** Softcite is trained on human annotations of the Softcite corpus (biomedical and economics papers), close to the PLoS and PMC papers of SoMeSci. Baguette is distilled from an LLM, on English and French papers. None of the SoMeSci articles is in the Softcite corpus; for Baguette, it is not known (see [Is the comparison fair?](#is-the-comparison-fair)).
+
+### Is the comparison fair?
+
+Checked on 2026-10-14, with the public sources and the outputs of both tools on the PEPR corpus (🤗 [`pepr-hal-data`](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data), `baguette/` and `softcite/`).
+
+| Check | Result | Fair? |
+|---|---|---|
+| Same texts for both tools | Yes: the same sentence, methods section or full-text blocks, from `prepare` | ✓ |
+| Same scoring for both tools | Yes, the same code. Only the mention level differs: Baguette has no offsets, so its spans are searched in the text | ✓ at document level; mention level of Baguette is approximate |
+| Same tool versions as on PEPR | Softcite: the same service, `software-mentions` 0.9.0-SNAPSHOT, revision `54efbc6`, for PEPR and SoMeSci. Baguette: the same endpoint, which cuts long inputs on both | ✓ |
+| SoMeSci articles in the training data of Softcite | None of the 1,257 SoMeSci articles (PMC ids) is in the Softcite corpus of the [software-mentions](https://github.com/softcite/software-mentions) repo (2,561 PMC articles in training, about 530 in the holdout). The repo uses SoMeSci only to build training data for the used / created / shared classifier, which is not scored here. Not checked: whether the weights on the Space were trained on more data than the repo | ✓ as far as the repo shows |
+| SoMeSci articles in the training data of Baguette | Unknown: its 531k training paragraphs are not public. Its labels come from an LLM teacher, not from SoMeSci, so at most the texts could overlap, not the annotations | ? |
+| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service | ~ see below |
+| Effect of cutting on Baguette | Measured on PEPR, paragraph by paragraph, against the Softcite mentions of the same paragraph: Baguette gives 0.48 names per Softcite name on paragraphs it did not cut (3,307 paragraphs), 0.42 on paragraphs it cut (1,131). Cutting costs little | ✓ probably |
+| Failed requests counted as misses | On PEPR, 7 of 22,410 Baguette paragraphs failed. On SoMeSci, not checked | ✓ probably |
+| What counts as software | Not neutral. SoMeSci and Softcite are human annotation schemes for the same task, with similar choices on names and versions; Softcite learned them from human annotations, Baguette from an LLM teacher with its own definition (software apart from datasets, roles…). SoMeSci measures agreement with such a scheme, which favours a model trained on one | ✗ favours Softcite |
+| Uncertainty | No confidence intervals. The gaps are large (0.08 to 0.29 of F1, on 285 to 1,142 gold software), but a bootstrap over documents would say how sure they are | ~ |
+
+**On PEPR, without gold:** on the 263 papers with both outputs, Baguette gives 7.9 unique names per paper and Softcite 8.8. Only about half are shared (51% of Baguette's names, 46% of Softcite's, with the relaxed matching). Per paragraph, Baguette gives about half as many names as Softcite: it names a software in fewer of the paragraphs where it appears. So the two tools disagree a lot on real papers too, and SoMeSci only says which one is closer to its annotators.
+
+**What would make it fairer:**
+
+1. Send the methods sections and full papers paragraph by paragraph (the lines of the SoMeSci texts) to both tools, as on PEPR, and run both again on `plos_methods` and `pubmed_fulltext`.
+2. Read the `errors`: whether Baguette's misses are software it does not see, or names SoMeSci counts as software and Baguette does not (or puts in `datasets`).
+3. Add bootstrap confidence intervals to `evaluate`.
 
 ## Baguette
 
