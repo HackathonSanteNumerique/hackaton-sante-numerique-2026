@@ -15,27 +15,28 @@ Document level, relaxed matching:
 | `plos_sentences` | Baguette | 0.915 | 0.746 | **0.822** | 0.770 | 0.529 |
 | | Softcite | 0.932 | 0.879 | **0.904** | 0.906 | 0.939 |
 | `plos_methods` | Baguette | 0.710 | 0.438 | **0.542** | 0.512 | 0.382 |
-| | Softcite | – | – | – | – | – |
+| | Softcite | 0.787 | 0.834 | **0.809** | 0.791 | 0.888 |
 | `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** | 0.519 | 0.574 |
 | | Softcite | 0.836 | 0.807 | **0.821** | 0.793 | 0.935 |
 
 Recall by type, document level (relaxed):
 
-| Type | Baguette, sentences | Softcite, sentences | Baguette, full papers | Softcite, full papers |
-|---|---|---|---|---|
-| `APPLICATION` | 0.797 | **0.939** | 0.475 | **0.872** |
-| `PROGRAMMINGENVIRONMENT` | 0.785 | **0.989** | 0.471 | **0.706** |
-| `PLUGIN` | 0.674 | **0.698** | 0.472 | **0.750** |
-| `OPERATINGSYSTEM` | 0.037 | 0.018 | 0.077 | 0.000 |
+| Type | Baguette sentences | Softcite sentences | Baguette methods | Softcite methods | Baguette full papers | Softcite full papers |
+|---|---|---|---|---|---|---|
+| `APPLICATION` | 0.797 | **0.939** | 0.429 | **0.860** | 0.475 | **0.872** |
+| `PROGRAMMINGENVIRONMENT` | 0.785 | **0.989** | 0.598 | **0.920** | 0.471 | **0.706** |
+| `PLUGIN` | 0.674 | **0.698** | 0.450 | **0.775** | 0.472 | **0.750** |
+| `OPERATINGSYSTEM` | 0.037 | 0.018 | 0.032 | 0.097 | 0.077 | 0.000 |
 
-**Differences between the tools** (`plos_sentences` and `pubmed_fulltext`; `plos_methods` will be added):
+**Differences between the tools:**
 
-- **Softcite is better on both: F1 0.90 against 0.82 on sentences, 0.82 against 0.53 on full papers.** On sentences, precision is about the same (0.93 against 0.92) and the difference is recall (0.88 against 0.75). On full papers both differ: precision 0.84 against 0.63, recall 0.81 against 0.46.
-- **Longer texts hurt Baguette much more.** From sentences to full papers, Softcite loses 0.08 of F1, Baguette 0.29. Both tools got the full papers split into the same paragraphs; Softcite then segments each paragraph itself, while Baguette's server cuts long paragraphs into pieces of about 200 tokens and the model misses mentions in long inputs. That points at how Baguette handles longer inputs, to be confirmed in the `errors`.
-- **Versions are where the gap is largest: F1 0.94 against 0.53 on sentences, 0.94 against 0.57 on full papers**, with the same metric. So the weak version scores of Baguette come from Baguette, not from the way versions are scored.
-- **By type:** Softcite finds most applications in both configs (0.94 and 0.87). Its programming environments drop from 0.99 on sentences to 0.71 on full papers. Both tools are weakest on plugins on sentences (about 0.7).
+- **Softcite is better on all three configs:** F1 0.90 against 0.82 on sentences, 0.81 against 0.54 on methods sections, 0.82 against 0.53 on full papers.
+- **Longer texts hurt Baguette much more.** From sentences to longer texts, Softcite loses 0.08 to 0.10 of F1, Baguette about 0.28. Both tools got the same inputs: one block per sentence or methods section, the same paragraphs for the full papers. Softcite segments each text itself, while Baguette's server cuts long texts into pieces of about 200 tokens and the model misses mentions in long inputs. That points at how Baguette handles longer inputs, to be confirmed in the `errors`.
+- **Recall is Baguette's main problem.** On sentences, precision is about the same (0.93 against 0.92) and only recall differs (0.88 against 0.75). On longer texts, Baguette gives far fewer names than there are gold software (719 for 1,142 on methods sections, 208 for 285 on full papers), and its recall falls below 0.46. Softcite gives about as many names as there are gold software, and keeps recall above 0.8.
+- **Versions are where the gap is largest:** F1 0.89 to 0.94 for Softcite, 0.38 to 0.57 for Baguette, with the same metric. So the weak version scores of Baguette come from Baguette, not from the way versions are scored.
+- **By type:** Softcite finds most applications (0.86–0.94) and programming environments (0.71–0.99) in every config. Plugins are the weakest type of both tools on sentences (about 0.7).
 - **Operating systems:** neither tool gives them (recall 0.02–0.04). This is a choice of SoMeSci, which annotates them as software, more than a fault of the tools. `--exclude-os` gives the scores without them.
-- **Exact names:** Softcite loses less from relaxed to exact matching (0.90 → 0.82) than Baguette (0.82 → 0.68): its names are closer to the annotated forms.
+- **Exact names:** Softcite loses less from relaxed to exact matching (e.g. 0.90 → 0.82 on sentences) than Baguette (0.82 → 0.68): its names are closer to the annotated forms.
 - **Mention level:** Softcite gives offsets, so its mention level is exact (F1 0.91, overlap). Baguette gives only names, and its mention level comes from searching them in the text (0.77). Compare the tools at document level first.
 - **Training data:** Softcite is trained on the Softcite corpus (biomedical and economics papers), close to the PLoS and PMC papers of SoMeSci. Baguette is distilled from an LLM, on English and French papers. Neither was trained on SoMeSci, as far as we know.
 
@@ -152,6 +153,17 @@ for c in plos_sentences plos_methods pubmed_fulltext; do
 done
 ```
 
+### Summary
+
+| Config | Documents | Gold software | Predicted names | P | R | F1 | F1 mention (overlap) |
+|---|---|---|---|---|---|---|---|
+| `plos_sentences` | 677 | 916 | 866 | 0.932 | 0.879 | **0.904** | 0.906 |
+| `plos_methods` | 480 | 1,142 | 1,227 | 0.787 | 0.834 | **0.809** | 0.791 |
+| `pubmed_fulltext` | 97 | 285 | 281 | 0.836 | 0.807 | **0.821** | 0.793 |
+
+- **Stable across inputs:** F1 0.90 on sentences, about 0.81–0.82 on methods sections and full papers.
+- **It gives about as many names as there are gold software** in every config: precision and recall stay close to each other.
+
 ### `plos_sentences`
 
 677 sentences. Softcite gave 866 unique names. Its names come with offsets, so all are in the text.
@@ -178,6 +190,33 @@ done
 - **Strict vs overlap (0.81 → 0.91):** about one span in ten has other boundaries than the gold one, e.g. with or without the vendor (`IBM SPSS Statistics` against `SPSS Statistics`).
 - **Versions: F1 0.94,** on the 805 software found (550 gold versions).
 - **Plugins** are its weak point (0.70), and it gives almost no operating systems.
+
+### `plos_methods`
+
+480 methods sections, each sent as one text. Softcite gave 1,227 unique names, 2.6 per section, for 1,142 gold software (2.4 per section).
+
+| Level | P | R | F1 | TP | FP | FN |
+|---|---|---|---|---|---|---|
+| `doc_exact` | 0.685 | 0.736 | 0.709 | 840 | 387 | 302 |
+| `doc_relaxed` | **0.787** | **0.834** | **0.809** | 952 | 258 | 190 |
+| `mention_strict` | 0.704 | 0.672 | 0.688 | 1051 | 442 | 512 |
+| `mention_overlap` | 0.810 | 0.773 | 0.791 | 1209 | 284 | 354 |
+| `version` | 0.900 | 0.876 | 0.888 | 423 | 47 | 60 |
+
+| Recall by type | document (relaxed) | mention (overlap) |
+|---|---|---|
+| `PROGRAMMINGENVIRONMENT` | 0.920 | 0.888 |
+| `PLUGIN` | 0.775 | 0.736 |
+| `APPLICATION` | 0.860 | 0.781 |
+| `OPERATINGSYSTEM` | 0.097 | 0.121 |
+
+**How to read it:**
+
+- **F1 0.81** at document level (relaxed), 0.10 below sentences.
+- **Recall is higher than precision here (0.83 against 0.79),** the only config where it is. Softcite gives more names than there are gold software (1,227 for 1,142). The 258 false positives are to be checked in the `errors`: names SoMeSci does not annotate, or one software given under several names.
+- **Exact vs relaxed (0.71 → 0.81):** a good part of the exact-match errors are differences of name, more than on sentences.
+- **Versions: F1 0.89,** on 483 gold versions.
+- **Programming environments** are found best (0.92); operating systems hardly at all (0.10).
 
 ### `pubmed_fulltext`
 
