@@ -6,6 +6,84 @@ Scores of the software-mention tools against [SoMeSci](../datasets/README.md#som
 - **All the numbers:** `data/somesci/results/<tool>/<config>.json`, with the errors of each document.
 - **Run:** all software types, implicit mentions included (no `--explicit-only`, no `--exclude-os`), unless written otherwise.
 
+## How the evaluation works
+
+The full description is in [README.md](README.md); this is the short version.
+
+### The steps
+
+1. **`prepare`** reads SoMeSci and writes, for each document, its text and its gold annotations (`gold/<config>.jsonl`), and the Baguette input.
+2. **The tools run on the same texts.** Baguette goes through its endpoint and Softcite through its text service (`softcite` command). Each writes one output file per document.
+3. **`evaluate --tool <tool>`** reads the gold and the outputs of the tool, matches them, and counts true positives (TP), false positives (FP) and false negatives (FN). The scores are micro-averaged over all the documents of a config: P = TP / (TP + FP), R = TP / (TP + FN), F1 their harmonic mean.
+
+### The fields used
+
+**SoMeSci (gold):**
+
+| Field | Used for |
+|---|---|
+| `software[]`: `name`, `alternativename`, `abbreviation`, `type`, `version` | document level: the software of the document, all its names, its type, its versions |
+| BIO tags + `start_offsets` → spans of `APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM` | mention level: where each software is written in the text |
+| spans of `ABBREVIATION`, `ALTERNATIVENAME` | mention level: a predicted span that only falls on one of them is not counted |
+
+`SOFTWARECOREFERENCE` ("the software") and the other attributes (developer, URL, license, citation…) are not used.
+
+**Baguette** (`paragraphs[].software[]` of each output):
+
+| Field | Used for |
+|---|---|
+| `name` | the predicted software |
+| `version` | the predicted version (with the numbers of `name`) |
+| `explicit_or_implicit` | `--explicit-only` drops the `implicit` ones |
+
+Not used: `role`, `evidence`, `artifact_type`, `repository_or_url`, `programming_language`, the `datasets`, and the article-level `record`. Baguette has no offsets.
+
+**Softcite** (`mentions[]` of each output, those with `type` `software`):
+
+| Field | Used for |
+|---|---|
+| `software-name.rawForm` | the predicted software |
+| `software-name.offsetStart`, `offsetEnd` | the predicted span |
+| `version.rawForm` | the predicted version |
+| `software-type` | `--explicit-only` drops the `implicit` ones |
+
+Not used: `normalizedForm`, `publisher`, `url`, `language`, `context`, the `used` / `created` / `shared` attributes, and the Wikidata ids.
+
+SoMeSci on Hugging Face has no usage / creation types, so the roles of Baguette and the attributes of Softcite cannot be scored.
+
+### The metrics, on an example
+
+The sentence:
+
+> Data were analysed with IBM SPSS Statistics version 25 and R.
+
+- **Gold:** two software, `IBM SPSS Statistics` (application, version 25, characters 24–43) and `R` (programming environment, characters 59–60).
+- **Softcite** (its real output): `SPSS Statistics` at 28–43 with version 25, and `R` at 59–60. It leaves `IBM` out of the name.
+- **Baguette** (for the example): `IBM SPSS Statistics` with version 25, and `R`. No offsets.
+
+**Document level** compares the *software* of the document with the *unique names* given by the tool, whatever the number of times they are written. A name matches a software if it matches its name, its alternative name or one of its abbreviations.
+
+| Metric | A name matches a software when | Softcite | Baguette |
+|---|---|---|---|
+| `doc_exact` | it is the same, after lower case and spaces and punctuation at the ends are normalised | `R` ✓, `SPSS Statistics` ✗ → TP 1, FP 1, FN 1 | both ✓ → TP 2 |
+| `doc_relaxed` | all the words of one are in the other | `SPSS Statistics` ⊂ `IBM SPSS Statistics` ✓ → TP 2 | TP 2 |
+
+So `doc_exact` asks for the same name as the annotators; `doc_relaxed` accepts a name with a word more or less (vendor, version, "software"…), such as `SPSS` ~ `IBM SPSS Statistics` or `SPSS 22` ~ `SPSS`, but not two different names. **`doc_relaxed` is the main score.**
+
+**Mention level** compares *spans*: every place where a software is written. A software written three times is three gold spans.
+
+| Metric | A predicted span matches a gold span when | Softcite | Baguette |
+|---|---|---|---|
+| `mention_strict` | they have the same start and end | `R` ✓, 28–43 ≠ 24–43 ✗ → TP 1, FP 1, FN 1 | TP 2 |
+| `mention_overlap` | they share at least one character | 28–43 overlaps 24–43 ✓ → TP 2 | TP 2 |
+
+- **Softcite's spans** are its own offsets.
+- **Baguette has no offsets.** Each of its names is searched in the text, as whole words and ignoring case, and every place found is a predicted span (here, 24–43 and 59–60). A name that is not in the text is one false positive. This makes Baguette's mention level an approximation: it assumes Baguette would find every occurrence of a name it gives once.
+
+**`version`** is scored on the software matched by `doc_relaxed` only. The predicted versions of the software (the version field, and the numbers of the name that are not part of the software's name) are compared with its gold versions, after `v`, `version`, `release`… are removed. Here both tools give `25` → TP 1.
+
+**Matching is one-to-one:** a predicted name or span matches at most one gold software or span, and the reverse. Two names of the same software (e.g. `Statistical Parametric Mapping` and `SPM`) give one true positive; the second one is not a false positive.
+
 ## Comparison
 
 Document level, relaxed matching:
