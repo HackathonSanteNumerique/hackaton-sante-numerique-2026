@@ -193,7 +193,8 @@ def predict(model, model_name: str, name: str, paragraphs: list[str]) -> tuple[d
     items = [{"index": i, "text": p, "entities": []} for i, p in enumerate(paragraphs)]
     for entity in doc.get("entities", []):
         fragments = sorted(entity["fragments"], key=lambda f: f["begin"])
-        begin, end = fragments[0]["begin"], fragments[-1]["end"]
+        # nlstruct may give numpy integers, which json can't serialise.
+        begin, end = int(fragments[0]["begin"]), int(fragments[-1]["end"])
         index = max(i for i, s in enumerate(starts) if s <= begin)
         entity_type, attributes = split_label(entity["label"])
         items[index]["entities"].append({
