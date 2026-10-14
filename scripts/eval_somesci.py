@@ -84,6 +84,15 @@ def decode_bio(text, tokens, starts, labels):
     return entities
 
 
+def split_paragraphs(text):
+    """Paragraphs of a full paper: the blocks between blank lines, or the lines when there is none.
+    The server only takes a 'paragraphs' list in a JSON input, and splits the long ones itself."""
+    blocks = re.split(r"\n\s*\n", text)
+    if len(blocks) == 1:
+        blocks = text.split("\n")
+    return [block.strip() for block in blocks if block.strip()] or [text]
+
+
 def safe_name(doc_id, used):
     name = re.sub(r"[^A-Za-z0-9._-]+", "_", str(doc_id)).strip("_") or "doc"
     candidate, i = name, 1
@@ -158,8 +167,7 @@ def prepare(args):
                 name = safe_name(row.id, used)
                 gold.write(json.dumps({"id": row.id, "file": name, "text": row.text,
                                        "entities": entities, "software": software}, ensure_ascii=False) + "\n")
-                # Full papers are sent as a text, which the server splits into paragraphs
-                payload = {"text": row.text} if config == "pubmed_fulltext" else {"paragraphs": [row.text]}
+                payload = {"paragraphs": split_paragraphs(row.text) if config == "pubmed_fulltext" else [row.text]}
                 (input_dir / f"{name}.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         print(f"{config}: {len(df)} documents, {n_entities} entities, {mismatches} span/token mismatches "
               f"-> {gold_dir / f'{config}.jsonl'}, {input_dir}")
