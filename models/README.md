@@ -105,7 +105,7 @@ On the PEPR corpus, only the **paper-text NER** applies, since there is no workf
 - `.txt` / `.md`: blocks separated by blank lines
 - `.json`: a list of strings, or an object with `paragraphs` or `text`
 
-It uses the **GPU** when there is one (CUDA, or MPS on a Mac) and falls back to the CPU; `--device cpu` (or `cuda:1`, `mps`) forces a device. On a Mac, two parts of nlstruct don't work on MPS: the input padding (`Unaligned blit request`) and the span scorer, which computes in float64. The client builds the input tensors on the CPU, and runs only the encoder (SciBERT, nearly all the compute) on MPS and the small decoder on the CPU. If a prediction still fails on MPS, the client retries the paper on the CPU and stays there for the rest of the run. On CPU it takes 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
+It uses the **GPU** when there is one (CUDA, or MPS on a Mac) and falls back to the CPU; `--device cpu` (or `cuda:1`, `mps`) forces a device. On a Mac, two parts of nlstruct don't work on MPS: the input padding (`Unaligned blit request`) and the span scorer, which computes in float64. The client builds the input tensors on the CPU, and runs only the encoder (SciBERT, nearly all the compute) on MPS and the small decoder on the CPU. SciBERT runs on the sentences of a paper by batches of `--batch-size` (default 32), instead of all at once: lower it if the GPU still runs out of memory. If a prediction still fails on MPS, the client retries the paper on the CPU and stays there for the rest of the run. On CPU it takes 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
 
 **Setup**, in the `copalink-experiments` Conda environment of nlp_models (see its README):
 
@@ -132,7 +132,7 @@ python $H/scripts/copalink_client.py \
 
 You can stop it with Ctrl+C and run the same command again: the papers that already have their files in `--output-dir` and `--softcite-dir` are skipped, and failed ones are retried.
 
-Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a few papers, and `--device` to choose the device (default `auto`).
+Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a few papers, `--device` to choose the device (default `auto`), and `--batch-size` for the number of sequences per SciBERT batch.
 
 **Output:**
 

@@ -155,6 +155,8 @@ def parse_args():
     parser.add_argument("--model", default="csebe_scibert_bioinfo_voc_iteration4_seed100.pt",
                         help="nlstruct checkpoint (default: the one of nlp_models)")  # fmt: skip
     parser.add_argument("--nlstruct", default="nlstruct", help="Folder of the nlstruct clone")
+    parser.add_argument("--batch-size", type=int, default=32,
+                        help="Sequences per SciBERT batch; lower it if the GPU runs out of memory (default: 32)")  # fmt: skip
     parser.add_argument("--device", default="auto",
                         help="auto (default: cuda, then mps, then cpu), cuda, cuda:1, mps or cpu")  # fmt: skip
     args = parser.parse_args()
@@ -204,6 +206,42 @@ def to_cpu(value):
     return value
 
 
+def batch_bert(model, batch_size: int):
+    """Run SciBERT on the sequences of a paper by batches of batch_size.
+
+    nlstruct runs all the sequences of a paper at once and keeps the hidden states
+    of the 13 layers: a long paper needs tens of GB, more than a GPU (or a Mac) has.
+    Each sequence is encoded independently, so the result is the same; the outputs
+    of the batches are padded with zeros to the same length, as nlstruct does."""
+    import torch
+
+    for encoder in model.encoder.encoders:
+        if not hasattr(encoder, "exec_bert"):
+            continue
+        exec_bert = encoder.exec_bert
+
+        def exec_bert_batched(tokens, mask, slices_begin, slices_end, exec_bert=exec_bert):
+            if len(tokens) <= batch_size:
+                return exec_bert(tokens, mask, slices_begin, slices_end)
+            batches = [
+                exec_bert(tokens[i : i + batch_size], mask[i : i + batch_size],
+                          slices_begin[i : i + batch_size], slices_end[i : i + batch_size])  # fmt: skip
+                for i in range(0, len(tokens), batch_size)
+            ]
+            results = []
+            for outputs in zip(*batches):
+                length = max(output.shape[1] for output in outputs)
+                padded = []
+                for output in outputs:
+                    full = output.new_zeros((output.shape[0], length, *output.shape[2:]))
+                    full[:, : output.shape[1]] = output
+                    padded.append(full)
+                results.append(torch.cat(padded))
+            return results
+
+        encoder.exec_bert = exec_bert_batched
+
+
 def run_decoder_on_cpu(model):
     """Run the decoder of the model on the CPU, the encoder staying on its device.
 
@@ -244,6 +282,7 @@ def load_model(args):
     # stays on the CPU: predict runs on the device of the parameters, so move them.
     device = pick_device(args.device)
     model = load_pretrained(args.model).to(device)
+    batch_bert(model, args.batch_size)
     if device.type == "mps":
         run_decoder_on_cpu(model)
         print("Model loaded on mps (encoder) and cpu (decoder)", file=sys.stderr)
