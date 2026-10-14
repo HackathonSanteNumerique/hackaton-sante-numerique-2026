@@ -1,6 +1,6 @@
 # Datasets
 
-This page covers the **target corpus** (PEPR Santé Numérique publications, not annotated) and the **annotated corpora** you can use for training, evaluation, or comparison.
+This page covers the **target corpus** (PEPR Santé Numérique publications, with Softcite predictions but no gold annotations) and the **annotated corpora** you can use for training, evaluation, or comparison.
 
 Figures were checked against the linked sources on 2026-10-13. Counts marked † are our own counts from the released files, not official figures.
 
@@ -18,7 +18,7 @@ Figures were checked against the linked sources on 2026-10-13. Counts marked †
 
 | Dataset | Domain | Docs | Software mentions | Other annotations | Format | License | Access |
 |---|---|---|---|---|---|---|---|
-| **PEPR HAL corpus** | Digital health | 264 (of 295 full texts on HAL) | — *(not annotated)* | — | GROBID TEI XML, JSON, Markdown | per paper (mostly CC-BY) | 🤗 public |
+| **PEPR HAL corpus** | Digital health | 264 (of 295 full texts on HAL) | 916 † *Softcite predictions, no gold* | used / created / shared (predicted) | GROBID TEI XML, JSON, Markdown; Softcite JSON | per paper (mostly CC-BY) | 🤗 public |
 | **SoftCite v2.0** | Biomedicine + economics | 4,971 | 5,134 | version, publisher, URL, language, relations | TEI XML, JSON | CC-BY 4.0 | Zenodo / GitHub |
 | **SoMeSci v1.1** | Biomedicine (PMC) | 1,367 | 3,756 | mention type (usage/creation/deposition/mention), software type, version, developer, URL, license, citation… | brat, RDF (JSON-LD), SPARQL | CC-BY 4.0 | Zenodo / GitHub |
 | **SoFAIR** | Multidisciplinary (15 domains) | 298 | 3,295 † | version, publisher, URL, language | TEI XML; 🤗 parquet (BIO) | not declared (CC-BY source papers) | 🤗 gated / GitHub |
@@ -29,20 +29,22 @@ Figures were checked against the linked sources on 2026-10-13. Counts marked †
 
 ## PEPR Santé Numérique HAL corpus
 
-Publications from the PEPR Santé Numérique HAL collection, processed with GROBID. **This is the corpus the hackathon works on.** It has no annotations.
+Publications from the PEPR Santé Numérique HAL collection, processed with GROBID and Softcite. **This is the corpus the hackathon works on.** It has no gold annotations: the software mentions are Softcite's predictions.
 
-- 🤗 **[HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data)**: public, not gated, about 109 MB.
+- 🤗 **[HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/HackatonSanteNumerique/pepr-hal-data)**: public, not gated, about 112 MB. It's a *model*-type repo, so pass `repo_type="model"` (the default) to `huggingface_hub`; [`scripts/download_pepr.py`](../scripts/download_pepr.py) does it for you.
 - HAL collection: **[univ-perp.hal.science/PEPR_SANTENUM](https://univ-perp.hal.science/PEPR_SANTENUM)**.
 
 **Contents.** 264 documents. The same file stem (the paper title in CamelCase) appears in each folder:
 
 | Folder | Files | Size | What it is |
 |---|---|---|---|
-| `xml/*.grobid.tei.xml` | 264 | 40 MB | GROBID 0.9.1 TEI, with header consolidation and coordinates on title, persName, affiliation, figure, ref, biblStruct, head, p, s… |
-| `json/*.json` | 264 | 55 MB | JSON version of the TEI: `biblio` (title, authors, publisher, abstract), `body_text[]` (`text`, `head_section`, `coords`, `refs`), `figures_and_tables[]`, `references[]` |
-| `md/*.md` | 264 | 14 MB | Markdown rendering of the body text |
+| `grobid/xml/*.grobid.tei.xml` | 264 | 40 MB | GROBID 0.9.1 TEI, with header consolidation and coordinates on title, persName, affiliation, figure, ref, biblStruct, head, p, s… |
+| `grobid/json/*.json` | 264 | 55 MB | JSON version of the TEI: `biblio` (title, authors, publisher, abstract), `body_text[]` (`text`, `head_section`, `coords`, `refs`), `figures_and_tables[]`, `references[]` |
+| `grobid/md/*.md` | 264 | 14 MB | Markdown rendering of the body text |
+| `softcite/*.tei.software.json` | 204 | 1 MB | Softcite software-mentions (0.9.0-SNAPSHOT) run on the GROBID TEI: one JSON per paper with `biblio` and `mentions[]` (name, version, publisher, URL, language, context, used / created / shared at mention and document level). **916 mentions** †, 191 distinct software, in 97 papers |
+| `softcite/*.software.json` | 204 | 1.4 MB | The same, run on the plain text instead of the TEI (no `biblio`) |
 
-> **Note:** the dataset contains **no PDFs, no plain-text files, and no software-mention annotations**. Get PDFs from HAL. For software mentions, run one of the [models](../models/README.md). Softcite's `annotateSoftwareTEI` endpoint accepts the `xml/` files directly.
+> **Note:** there are **no PDFs and no plain-text files**; get PDFs from HAL. Softcite output exists for 204 of the 264 papers. The [starter notebook](../notebooks/softcite_analysis.ipynb) reads `softcite/*.tei.software.json`. To compare with other extractors, run the [models](../models/README.md) on the `grobid/` files.
 
 **The HAL collection** (from the [HAL search API](https://api.archives-ouvertes.fr/search/PEPR_SANTENUM/?q=*:*&rows=0&wt=json)):
 

@@ -190,8 +190,9 @@ Three questions to guide your two days:
 **HAL publications of the PEPR Santé Numérique**
 [univ-perp.hal.science/PEPR_SANTENUM](https://univ-perp.hal.science/PEPR_SANTENUM)
 
-- Unannotated, as **PDF**, **TXT**, **JSON** and **Markdown** (via GROBID)
-- 🤗 [huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data)
+- **264 papers** processed with GROBID: **TEI XML**, **JSON** and **Markdown**
+- **Softcite predictions** (no gold): 916 mentions in 204 papers
+- 🤗 [huggingface.co/HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/HackatonSanteNumerique/pepr-hal-data)
 
 **Annotated corpora**
 

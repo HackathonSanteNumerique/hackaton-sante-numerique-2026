@@ -30,21 +30,27 @@ SOFTCITE=https://lfoppiano-softcite-software-mentions.hf.space
 curl -X POST -d "text=Analyses were performed with SPSS v25 and R 4.3." $SOFTCITE/service/processSoftwareText
 # PDF
 curl --form input=@paper.pdf $SOFTCITE/service/annotateSoftwarePDF
-# GROBID TEI: the PEPR corpus xml/ files can go in as they are
+# GROBID TEI: the PEPR corpus grobid/xml/ files can go in as they are
 curl --form input=@paper.grobid.tei.xml $SOFTCITE/service/annotateSoftwareTEI
 ```
 
 The Space is shared by everyone, so `503` means it's busy: wait a couple of seconds and send the request again.
 
-**Annotate the whole PEPR corpus** into the format the [starter notebook](../notebooks/softcite_analysis.ipynb) expects:
+**The PEPR corpus is already annotated:** the Softcite output for 204 of the 264 papers is in `softcite/` on the [🤗 repo](https://huggingface.co/HackatonSanteNumerique/pepr-hal-data), and the [starter notebook](../notebooks/softcite_analysis.ipynb) reads it:
 
 ```bash
-uv run python scripts/download_pepr.py --pattern "xml/*"
-mkdir -p data/software-mentions
-for f in data/pepr-hal-data/xml/*.grobid.tei.xml; do
+uv run python scripts/download_pepr.py --pattern "softcite/*"
+```
+
+To re-run Softcite yourself (the 60 missing papers, other settings, a newer model), write the output to a separate folder and point the notebook's `DATA_DIR` at it:
+
+```bash
+uv run python scripts/download_pepr.py --pattern "grobid/xml/*"
+mkdir -p data/softcite-rerun
+for f in data/pepr-hal-data/grobid/xml/*.grobid.tei.xml; do
   b=$(basename "$f" .grobid.tei.xml)
   curl -s --form input=@"$f" $SOFTCITE/service/annotateSoftwareTEI \
-    > "data/software-mentions/$b.tei.software.json"
+    > "data/softcite-rerun/$b.tei.software.json"
 done
 ```
 
@@ -128,7 +134,7 @@ curl -X POST $URL -H 'Content-Type: application/json' \
   -d '{"text": "Analyses were performed with SPSS v25 and R 4.3."}'
 
 # a GROBID TEI file from the PEPR corpus, without step 2
-curl -X POST $URL -F 'file=@data/pepr-hal-data/xml/<paper>.grobid.tei.xml' -F 'analyze=false'
+curl -X POST $URL -F 'file=@data/pepr-hal-data/grobid/xml/<paper>.grobid.tei.xml' -F 'analyze=false'
 
 # paragraphs you split yourself
 curl -X POST $URL -H 'Content-Type: application/json' \
@@ -153,7 +159,7 @@ HTTP 400 means the input couldn't be read; HTTP 500 means the service failed.
 ```bash
 git clone https://github.com/ScienciaLAB/lm-inference.git
 python lm-inference/deployments/baguette/baguette_client.py --endpoint $URL \
-  --input-folder data/pepr-hal-data/xml \
+  --input-folder data/pepr-hal-data/grobid/xml \
   --output-dir data/baguette --csv-output data/baguette.csv \
   --threads 4 --no-analyze
 ```

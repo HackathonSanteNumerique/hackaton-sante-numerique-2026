@@ -34,7 +34,7 @@ Three questions to guide your two days:
 | 👥 **Group work** | [`groups/`](groups/README.md): one folder per group, plus a template |
 | 💻 **Environment** | [`environment/`](environment/README.md): Biosphere Jupyter VM, opencode + Albert API |
 | 🎞️ **Opening slides** | [`presentation/`](presentation/README.md) |
-| 🤗 **PEPR data** | [HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data) |
+| 🤗 **PEPR data** | [HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/HackatonSanteNumerique/pepr-hal-data): GROBID outputs + Softcite predictions |
 
 ## Getting started
 
@@ -47,7 +47,8 @@ git clone https://github.com/HackathonSanteNumerique/hackaton-sante-numerique-20
 cd hackaton-sante-numerique-2026
 uv sync
 
-# Download the PEPR corpus into data/ (git-ignored)
+# Download the PEPR corpus (GROBID outputs + Softcite predictions, ~112 MB) into data/ (git-ignored)
+# or only the Softcite output the notebook needs: --pattern "softcite/*"
 uv run python scripts/download_pepr.py
 
 # Open the starter notebook
