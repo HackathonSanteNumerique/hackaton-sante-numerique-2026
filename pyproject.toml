@@ -10,7 +10,7 @@ dependencies = [
     "jupyter",
     "ipykernel",
     "huggingface_hub",
-    "pyarrow>=26.0.0",
+    "pyarrow",
 ]
 
 [tool.uv]
