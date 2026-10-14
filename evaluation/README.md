@@ -156,6 +156,7 @@ The JSON results have:
 | `doc_relaxed` | **0.915** | **0.746** | **0.822** | 683 | 63 | 233 |
 | `mention_strict` | 0.660 | 0.607 | 0.633 | 581 | 299 | 376 |
 | `mention_overlap` | 0.803 | 0.739 | 0.770 | 707 | 173 | 250 |
+| `version` | 0.506 | 0.555 | 0.529 | 266 | 260 | 213 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -163,8 +164,6 @@ The JSON results have:
 | `PROGRAMMINGENVIRONMENT` | 0.785 | 0.718 |
 | `PLUGIN` | 0.674 | 0.682 |
 | `OPERATINGSYSTEM` | 0.037 | 0.054 |
-
-The version row is not shown: it was computed with an earlier version metric, which mixed two different counts. Re-run `evaluate` to get it.
 
 **How to read it:**
 
@@ -174,6 +173,7 @@ The version row is not shown: it was computed with an earlier version metric, wh
 - **Strict vs overlap (0.63 → 0.77):** the same thing at mention level, with 126 more matches. Baguette finds the right place, but its span is longer or shorter than the gold one, probably for the same reason.
 - **Operating systems:** Baguette almost never gives Windows, Linux or macOS as software. This looks like a choice of the model rather than a miss. They are few in the gold; `--exclude-os` gives the scores without them.
 - **Plugins** (R or Python packages, toolboxes…) are found less often (0.67) than applications and programming languages (about 0.79).
+- **Versions are weak (F1 0.53)**, on the 683 software found: about half of the predicted versions are not the gold one, and 213 of the 479 gold versions are missed. Part of it can come from the way versions are written or attached in SoMeSci (see [Limits](#limits)); the `version_errors` show which.
 
 The `errors` of the results JSON tell real misses apart from differences of name that relaxed matching does not catch. The `pubmed_fulltext` and `plos_methods` results will be added here; longer texts should give lower scores.
 
