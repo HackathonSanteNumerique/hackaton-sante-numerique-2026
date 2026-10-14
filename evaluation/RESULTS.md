@@ -35,9 +35,9 @@ Recall by type, document level (relaxed):
 - **Recall is Baguette's main problem.** On sentences, precision is about the same (0.93 against 0.92) and only recall differs (0.88 against 0.75). On longer texts, Baguette gives far fewer names than there are gold software (719 for 1,142 on methods sections, 208 for 285 on full papers), and its recall falls below 0.46. Softcite gives about as many names as there are gold software, and keeps recall above 0.8.
 - **Versions are where the gap is largest:** F1 0.89 to 0.94 for Softcite, 0.38 to 0.57 for Baguette, with the same metric. So the weak version scores of Baguette come from Baguette, not from the way versions are scored.
 - **By type:** Softcite finds most applications (0.86–0.94) and programming environments (0.71–0.99) in every config. Plugins are the weakest type of both tools on sentences (about 0.7).
-- **Operating systems:** neither tool gives them (recall 0.02–0.04). This is a choice of SoMeSci, which annotates them as software, more than a fault of the tools. `--exclude-os` gives the scores without them.
+- **Operating systems:** neither tool gives them (recall 0.10 at most). This is a choice of SoMeSci, which annotates them as software, more than a fault of the tools. `--exclude-os` gives the scores without them.
 - **Exact names:** Softcite loses less from relaxed to exact matching (e.g. 0.90 → 0.82 on sentences) than Baguette (0.82 → 0.68): its names are closer to the annotated forms.
-- **Mention level:** Softcite gives offsets, so its mention level is exact (F1 0.91, overlap). Baguette gives only names, and its mention level comes from searching them in the text (0.77). Compare the tools at document level first.
+- **Mention level:** Softcite gives offsets, so its mention level is exact (F1 0.79–0.91, overlap). Baguette gives only names, and its mention level comes from searching them in the text (0.51–0.77). Compare the tools at document level first.
 - **Training data:** Softcite is trained on the Softcite corpus (biomedical and economics papers), close to the PLoS and PMC papers of SoMeSci. Baguette is distilled from an LLM, on English and French papers. Neither was trained on SoMeSci, as far as we know.
 
 ## Baguette
