@@ -3,7 +3,7 @@
 | Tool | What it extracts | Trained on | Access |
 |---|---|---|---|
 | [**Softcite software-mentions**](#softcite-software-mentions) | software name, version, publisher, URL, language; *used / created / shared*; Wikidata linking | SoftCite | 🤗 Space (REST API), or Docker |
-| [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab ([nlp_models](https://gitlab.liris.cnrs.fr/sharefair/nlp_models)); run locally on CPU with [`copalink_client.py`](#run-the-paper-text-ner-on-the-pepr-corpus) |
+| [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab ([nlp_models](https://gitlab.liris.cnrs.fr/sharefair/nlp_models)); run locally (GPU or CPU) with [`copalink_client.py`](#run-the-paper-text-ner-on-the-pepr-corpus) |
 | [**Baguette**](#baguette-dataesr) (dataESR) | software and dataset mentions per paragraph, with role and type (generative LLM, JSON output) | distilled from Qwen3.5-27B | 🤗 bucket; served through [`lm-inference`](#lm-inference) |
 
 Plus [external data sources](#external-data) to enrich your results.
@@ -105,7 +105,7 @@ On the PEPR corpus, only the **paper-text NER** applies, since there is no workf
 - `.txt` / `.md`: blocks separated by blank lines
 - `.json`: a list of strings, or an object with `paragraphs` or `text`
 
-It runs on **CPU**: 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
+It uses the **GPU** when there is one (CUDA, or MPS on a Mac) and falls back to the CPU; `--device cpu` (or `cuda:1`, `mps`) forces a device. On CPU it takes 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
 
 **Setup**, in the `copalink-experiments` Conda environment of nlp_models (see its README):
 
@@ -129,7 +129,7 @@ python $H/scripts/copalink_client.py \
   --brat-dir $H/data/copalink-brat
 ```
 
-Other options: `--text "..."` for a quick test, and `--input-file a.xml b.xml` for a few papers.
+Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a few papers, and `--device` to choose the device (default `auto`).
 
 **Output:**
 

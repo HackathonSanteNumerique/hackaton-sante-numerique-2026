@@ -35,6 +35,9 @@ Usage, from the nlp_models folder (the defaults of --model and --nlstruct):
 
 Without --output-dir the result is printed. --brat-dir also writes the .txt and
 .ann files of each paper, in the format of predict_files.py, to view in brat.
+
+The model runs on the GPU when there is one (CUDA, or MPS on a Mac), otherwise on
+the CPU; --device forces one.
 """
 
 import argparse
@@ -118,14 +121,33 @@ def parse_args():
     parser.add_argument("--model", default="csebe_scibert_bioinfo_voc_iteration4_seed100.pt",
                         help="nlstruct checkpoint (default: the one of nlp_models)")  # fmt: skip
     parser.add_argument("--nlstruct", default="nlstruct", help="Folder of the nlstruct clone")
+    parser.add_argument("--device", default="auto",
+                        help="auto (default: cuda, then mps, then cpu), cuda, cuda:1, mps or cpu")  # fmt: skip
     args = parser.parse_args()
     if args.input_folder and not args.output_dir:
         parser.error("--input-folder requires --output-dir")
     return args
 
 
+def pick_device(name: str):
+    """The device of --device; with 'auto', the GPU if there is one (CUDA, or MPS on a Mac)."""
+    import torch
+
+    if name != "auto":
+        return torch.device(name)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def load_model(args):
-    """Import nlstruct from its clone, as predict_files.py does, and load the model."""
+    """Import nlstruct from its clone, as predict_files.py does, and load the model
+    on the GPU if there is one."""
+    # On MPS, run the operations that PyTorch doesn't implement there on the CPU
+    # instead of failing; it must be set before torch is imported.
+    os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
     import transformers
 
     # nlstruct calls tokenizer.encode_plus, which transformers 5 removed: every paper
@@ -138,7 +160,12 @@ def load_model(args):
     sys.path.insert(0, str(Path(args.nlstruct).resolve()))
     from nlstruct import load_pretrained
 
-    return load_pretrained(args.model)
+    # load_pretrained puts the weights on CUDA if available, but the model it builds
+    # stays on the CPU: predict runs on the device of the parameters, so move them.
+    device = pick_device(args.device)
+    model = load_pretrained(args.model).to(device)
+    print(f"Model loaded on {device}", file=sys.stderr)
+    return model
 
 
 def split_label(label) -> tuple[str, list[str]]:
