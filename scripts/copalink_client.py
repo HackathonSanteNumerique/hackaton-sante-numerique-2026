@@ -58,6 +58,7 @@ import os
 import re
 import sys
 import time
+import traceback
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -220,7 +221,9 @@ def predict_document(model, document: dict) -> dict:
     except RuntimeError as e:
         if next(model.parameters()).device.type != "mps":
             raise
-        print(f"Prediction failed on mps, switching to the CPU: {str(e).splitlines()[0]}", file=sys.stderr)
+        # The frames of the error, to find the operation that MPS doesn't support.
+        frames = "".join(traceback.format_tb(e.__traceback__)[-6:])
+        print(f"Prediction failed on mps, switching to the CPU: {str(e).splitlines()[0]}\n{frames}", file=sys.stderr)
         model.to("cpu")
         return model.predict(document)
 
