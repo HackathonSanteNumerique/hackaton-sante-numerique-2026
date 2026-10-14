@@ -176,6 +176,23 @@ def pick_device(name: str):
     return torch.device("cpu")
 
 
+def patch_pad_to_tensor(torch_utils):
+    """Build the input tensors of nlstruct on the CPU, then move them to the device.
+
+    pad_to_tensor creates each row on the device and copies it into a CPU array at
+    its offset: on MPS, a copy to an offset that isn't a multiple of 4 bytes fails
+    ("Unaligned blit request"), for instance for the bool masks. The result is the
+    same, without a round trip per row."""
+    pad_to_tensor = torch_utils.pad_to_tensor
+
+    def pad_to_tensor_on_cpu(y, dtype=None, device=None, pad=0):
+        array = pad_to_tensor(y, dtype=dtype, pad=pad)
+        return array if device is None else array.to(device)
+
+    # batch_to_tensors looks pad_to_tensor up in its module at each call.
+    torch_utils.pad_to_tensor = pad_to_tensor_on_cpu
+
+
 def load_model(args):
     """Import nlstruct from its clone, as predict_files.py does, and load the model
     on the GPU if there is one."""
@@ -192,8 +209,10 @@ def load_model(args):
             'install the version of nlp_models: pip install "transformers==4.56.1"'
         )
     sys.path.insert(0, str(Path(args.nlstruct).resolve()))
+    import nlstruct.torch_utils
     from nlstruct import load_pretrained
 
+    patch_pad_to_tensor(nlstruct.torch_utils)
     # load_pretrained puts the weights on CUDA if available, but the model it builds
     # stays on the CPU: predict runs on the device of the parameters, so move them.
     device = pick_device(args.device)
