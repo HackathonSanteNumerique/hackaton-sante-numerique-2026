@@ -193,6 +193,33 @@ def patch_pad_to_tensor(torch_utils):
     torch_utils.pad_to_tensor = pad_to_tensor_on_cpu
 
 
+def to_cpu(value):
+    """The tensors of a (nested) value moved to the CPU."""
+    if hasattr(value, "cpu") and hasattr(value, "device"):
+        return value.cpu()
+    if isinstance(value, dict):
+        return {key: to_cpu(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(to_cpu(item) for item in value)
+    return value
+
+
+def run_decoder_on_cpu(model):
+    """Run the decoder of the model on the CPU, the encoder staying on its device.
+
+    The span scorer of the decoder computes the CRF marginals in float64, which MPS
+    doesn't support. The encoder (SciBERT, 115M parameters) does most of the work; the
+    decoder (BiLSTM, span scorer and qualifier, 4M) is cheap on the CPU, and keeps its
+    float64 precision."""
+    model.decoder.to("cpu")
+    forward = model.decoder.forward
+
+    def forward_on_cpu(*args, **kwargs):
+        return forward(*to_cpu(args), **to_cpu(kwargs))
+
+    model.decoder.forward = forward_on_cpu
+
+
 def load_model(args):
     """Import nlstruct from its clone, as predict_files.py does, and load the model
     on the GPU if there is one."""
@@ -217,7 +244,11 @@ def load_model(args):
     # stays on the CPU: predict runs on the device of the parameters, so move them.
     device = pick_device(args.device)
     model = load_pretrained(args.model).to(device)
-    print(f"Model loaded on {device}", file=sys.stderr)
+    if device.type == "mps":
+        run_decoder_on_cpu(model)
+        print("Model loaded on mps (encoder) and cpu (decoder)", file=sys.stderr)
+    else:
+        print(f"Model loaded on {device}", file=sys.stderr)
     return model
 
 
@@ -232,12 +263,12 @@ def split_label(label) -> tuple[str, list[str]]:
 
 
 def predict_document(model, document: dict) -> dict:
-    """model.predict, falling back to the CPU if it fails on MPS: some PyTorch
-    operations in nlstruct crash there ("Unaligned blit request"). The model then
-    stays on the CPU for the rest of the run."""
+    """model.predict, falling back to the CPU if it fails on MPS, which doesn't
+    support every PyTorch operation. The model then stays on the CPU for the rest
+    of the run."""
     try:
         return model.predict(document)
-    except RuntimeError as e:
+    except Exception as e:  # noqa: BLE001
         if next(model.parameters()).device.type != "mps":
             raise
         # The frames of the error, to find the operation that MPS doesn't support.
