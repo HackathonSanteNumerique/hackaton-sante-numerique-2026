@@ -10,8 +10,12 @@ npx @marp-team/marp-cli hackathon-software-mentions.md --html --allow-local-file
 npx @marp-team/marp-cli hackathon-software-mentions.md --pdf  --allow-local-files -o hackathon-software-mentions.pdf
 ```
 
-Or open it in VS Code with the [Marp extension](https://marketplace.visualstudio.com/items?itemName=marp-team.marp-vscode).
+[`hackathon-one-slide.md`](hackathon-one-slide.md) is a one-slide summary (title, authors, goal, resources, GitHub link) to share or project on its own. Render it the same way:
+
+```bash
+npx @marp-team/marp-cli hackathon-one-slide.md --pdf --html -o hackathon-one-slide.pdf
+```
+
+Or open either file in VS Code with the [Marp extension](https://marketplace.visualstudio.com/items?itemName=marp-team.marp-vscode).
 
 Logos live in [`logos/`](logos/).
-
-> **Missing:** the title slide references `logos/pepr-santenum.png`, which isn't in the repo yet.
