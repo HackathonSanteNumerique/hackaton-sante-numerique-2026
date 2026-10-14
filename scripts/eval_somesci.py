@@ -98,6 +98,30 @@ def to_list(value):
     return [] if value is None else list(value)
 
 
+def plain(value):
+    """A parquet value (numpy array, list or scalar) as plain Python."""
+    if value is None or isinstance(value, str):
+        return value
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    if isinstance(value, (list, tuple)):
+        return [plain(v) for v in value]
+    return value
+
+
+def software_records(value):
+    """The `software` field as a list of records. A Sequence of dicts is stored as a dict of lists
+    ({"name": [...], "type": [...], ...}), but a list of dicts is accepted too."""
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        columns = {key: to_list(column) for key, column in value.items()}
+        size = max((len(column) for column in columns.values()), default=0)
+        return [{key: plain(column[i]) if i < len(column) else None for key, column in columns.items()}
+                for i in range(size)]
+    return [{key: plain(v) for key, v in record.items()} for record in to_list(value)]
+
+
 def local_parquet(source, config):
     """Parquet file of a config in a local copy of the dataset: <config>/*.parquet, or a file named after it."""
     candidates = sorted((source / config).glob("*.parquet")) + sorted(source.rglob(f"*{config}*.parquet"))
@@ -130,11 +154,7 @@ def prepare(args):
                     covered = [t for t, s in zip(tokens, row.start_offsets) if entity["start"] <= s < entity["end"]]
                     if re.sub(r"\s", "", entity["text"]) != "".join(covered).replace(" ", ""):
                         mismatches += 1
-                software = [
-                    {key: (to_list(value) if not isinstance(value, str) and value is not None else value)
-                     for key, value in record.items()}
-                    for record in to_list(row.software)
-                ]
+                software = software_records(row.software)
                 name = safe_name(row.id, used)
                 gold.write(json.dumps({"id": row.id, "file": name, "text": row.text,
                                        "entities": entities, "software": software}, ensure_ascii=False) + "\n")
