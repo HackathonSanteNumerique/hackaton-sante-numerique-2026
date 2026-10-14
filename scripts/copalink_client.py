@@ -18,7 +18,8 @@ File types, by extension:
 The paragraphs are joined with blank lines into one document, predicted with
 nlstruct, and each entity is assigned back to its paragraph.
 
-Setup (once), in the copalink-experiments Conda environment of nlp_models:
+Setup (once), in this repo: uv sync --extra copalink, and clone nlp_models for the
+model. Or in the copalink-experiments Conda environment of nlp_models:
     git clone https://gitlab.liris.cnrs.fr/sharefair/nlp_models.git   # with git-lfs, for the .pt model
     cd nlp_models && git clone https://github.com/ClemenceS/nlstruct.git
 nlstruct needs transformers 4.x (nlp_models pins 4.56.1): transformers 5 removed
@@ -265,7 +266,11 @@ def load_model(args):
     # On MPS, run the operations that PyTorch doesn't implement there on the CPU
     # instead of failing; it must be set before torch is imported.
     os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
-    import transformers
+    try:
+        import transformers
+    except ImportError as e:
+        # For instance transformers 4.x with huggingface_hub >= 1.0.
+        sys.exit(f"{e}\nIn this repo, install the CoPaLink dependencies with: uv sync --extra copalink")
 
     # nlstruct calls tokenizer.encode_plus, which transformers 5 removed: every paper
     # would fail with "BertTokenizer has no attribute encode_plus".

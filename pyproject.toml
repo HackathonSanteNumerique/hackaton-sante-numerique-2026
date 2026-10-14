@@ -13,6 +13,16 @@ dependencies = [
     "pyarrow",
 ]
 
+[project.optional-dependencies]
+# CoPaLink (scripts/copalink_client.py): uv sync --extra copalink
+# nlstruct calls tokenizer.encode_plus, which transformers 5 removed; transformers 4.x
+# in turn needs huggingface_hub < 1.0.
+copalink = [
+    "torch",
+    "transformers==4.56.1",
+    "nlstruct @ git+https://github.com/ClemenceS/nlstruct.git@f7fc39ebaf6bbb8255c692dca6d01ee9e727c898",
+]
+
 [tool.uv]
 # This repo is a hackathon workspace, not an installable package.
 package = false

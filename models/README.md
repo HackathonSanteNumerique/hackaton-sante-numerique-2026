@@ -107,7 +107,17 @@ On the PEPR corpus, only the **paper-text NER** applies, since there is no workf
 
 It uses the **GPU** when there is one (CUDA, or MPS on a Mac) and falls back to the CPU; `--device cpu` (or `cuda:1`, `mps`) forces a device. On a Mac, two parts of nlstruct don't work on MPS: the input padding (`Unaligned blit request`) and the span scorer, which computes in float64. The client builds the input tensors on the CPU, and runs only the encoder (SciBERT, nearly all the compute) on MPS and the small decoder on the CPU. SciBERT runs on the sentences of a paper by batches of `--batch-size` (default 32), instead of all at once: lower it if the GPU still runs out of memory. If a prediction still fails on MPS, the client retries the paper on the CPU and stays there for the rest of the run. On CPU it takes 15–30 s per PEPR paper on a 24-core machine, so all 264 papers take about 1.5 h.
 
-**Setup**, in the `copalink-experiments` Conda environment of nlp_models (see its README):
+**Setup with uv** (simplest), in this repo; nlp_models is only needed for the model file:
+
+```bash
+uv sync --extra copalink        # torch, transformers 4.56.1, nlstruct
+git lfs install
+git clone https://gitlab.liris.cnrs.fr/sharefair/nlp_models.git ../nlp_models
+```
+
+Keep `--extra copalink` on later syncs: a plain `uv sync` removes these packages again. Then run from this repo with `--model ../nlp_models/csebe_scibert_bioinfo_voc_iteration4_seed100.pt`.
+
+**Or with Conda**, in the `copalink-experiments` environment of nlp_models (see its README):
 
 ```bash
 git lfs install
@@ -117,9 +127,9 @@ git clone https://github.com/ClemenceS/nlstruct.git
 conda env create -f environment.yml && conda activate copalink-experiments
 ```
 
-`nlstruct` needs **transformers 4.x**: transformers 5 removed `tokenizer.encode_plus`, and every paper fails with `BertTokenizer has no attribute encode_plus`. The Conda environment pins 4.56.1. In any other environment, run `pip install "transformers==4.56.1"`; the client refuses to start with 5.x.
+`nlstruct` needs **transformers 4.x**: transformers 5 removed `tokenizer.encode_plus`, and every paper fails with `BertTokenizer has no attribute encode_plus`. transformers 4.x in turn needs **`huggingface_hub` < 1.0**. Both environments above pin a compatible set (transformers 4.56.1); don't install transformers by hand into an environment that has `huggingface_hub` 1.x or later.
 
-**Run**, from the `nlp_models` folder (the defaults of `--model` and `--nlstruct` point there):
+**Run**, here from the `nlp_models` folder (the defaults of `--model` and `--nlstruct` point there; without an `nlstruct` clone, the installed package is used):
 
 ```bash
 H=../hackaton-sante-numerique-2026      # this repo
