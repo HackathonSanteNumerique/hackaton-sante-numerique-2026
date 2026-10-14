@@ -43,7 +43,7 @@ Work on your laptop or on a Jupyter VM on Biosphere, the IFB cloud: see [`enviro
 The repo is a [uv](https://docs.astral.sh/uv/) project:
 
 ```bash
-git clone https://github.com/ScienciaLAB/hackaton-sante-numerique-2026.git
+git clone https://github.com/HackathonSanteNumerique/hackaton-sante-numerique-2026.git
 cd hackaton-sante-numerique-2026
 uv sync
 

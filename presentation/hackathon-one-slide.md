@@ -31,6 +31,6 @@ Luca Foppiano (ScienciaLAB, Inria) · Clémence Sebe (LISN, Université Paris-Sa
 
 <div class="repo">
 
-💻 **github.com/HackatonSanteNumerique/hackaton-sante-numerique-2026**
+💻 **github.com/HackathonSanteNumerique/hackaton-sante-numerique-2026**
 
 </div>
