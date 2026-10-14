@@ -117,6 +117,8 @@ git clone https://github.com/ClemenceS/nlstruct.git
 conda env create -f environment.yml && conda activate copalink-experiments
 ```
 
+`nlstruct` needs **transformers 4.x**: transformers 5 removed `tokenizer.encode_plus`, and every paper fails with `BertTokenizer has no attribute encode_plus`. The Conda environment pins 4.56.1. In any other environment, run `pip install "transformers==4.56.1"`; the client refuses to start with 5.x.
+
 **Run**, from the `nlp_models` folder (the defaults of `--model` and `--nlstruct` point there):
 
 ```bash

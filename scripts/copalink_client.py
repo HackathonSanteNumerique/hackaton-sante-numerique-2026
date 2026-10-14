@@ -21,6 +21,8 @@ nlstruct, and each entity is assigned back to its paragraph.
 Setup (once), in the copalink-experiments Conda environment of nlp_models:
     git clone https://gitlab.liris.cnrs.fr/sharefair/nlp_models.git   # with git-lfs, for the .pt model
     cd nlp_models && git clone https://github.com/ClemenceS/nlstruct.git
+nlstruct needs transformers 4.x (nlp_models pins 4.56.1): transformers 5 removed
+tokenizer.encode_plus.
 
 Usage, from the nlp_models folder (the defaults of --model and --nlstruct):
     python copalink_client.py --text "Reads were aligned with BWA and sorted with samtools."
@@ -124,6 +126,15 @@ def parse_args():
 
 def load_model(args):
     """Import nlstruct from its clone, as predict_files.py does, and load the model."""
+    import transformers
+
+    # nlstruct calls tokenizer.encode_plus, which transformers 5 removed: every paper
+    # would fail with "BertTokenizer has no attribute encode_plus".
+    if int(transformers.__version__.split(".")[0]) >= 5:
+        sys.exit(
+            f"transformers {transformers.__version__} is not supported by nlstruct; "
+            'install the version of nlp_models: pip install "transformers==4.56.1"'
+        )
     sys.path.insert(0, str(Path(args.nlstruct).resolve()))
     from nlstruct import load_pretrained
 
