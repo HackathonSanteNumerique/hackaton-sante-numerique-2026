@@ -13,17 +13,30 @@ Document level, relaxed matching:
 | Config | Tool | P | R | F1 | F1 mention (overlap) | F1 version |
 |---|---|---|---|---|---|---|
 | `plos_sentences` | Baguette | 0.915 | 0.746 | **0.822** | 0.770 | 0.529 |
-| | Softcite | – | – | – | – | – |
+| | Softcite | 0.932 | 0.879 | **0.904** | 0.906 | 0.939 |
 | `plos_methods` | Baguette | 0.710 | 0.438 | **0.542** | 0.512 | 0.382 |
 | | Softcite | – | – | – | – | – |
 | `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** | 0.519 | 0.574 |
 | | Softcite | – | – | – | – | – |
 
-**Differences between the tools:** to be written when the Softcite runs are done. Things to compare:
+Recall by type, `plos_sentences`, document level (relaxed):
 
-- **Document level first.** Softcite gives offsets, so its mention level is exact. Baguette gives only names, so its mention level comes from searching them in the text, which is an approximation. Compare mention levels with that in mind.
-- **Recall by type:** for example operating systems, which Baguette almost never gives.
-- **Inputs:** sentences, methods sections, full papers. Baguette drops a lot on the longer texts.
+| Type | Baguette | Softcite |
+|---|---|---|
+| `APPLICATION` | 0.797 | **0.939** |
+| `PROGRAMMINGENVIRONMENT` | 0.785 | **0.989** |
+| `PLUGIN` | 0.674 | **0.698** |
+| `OPERATINGSYSTEM` | 0.037 | 0.018 |
+
+**Differences between the tools** (on `plos_sentences` so far; the other configs will be added):
+
+- **Softcite is better: F1 0.90 against 0.82.** Precision is about the same (0.93 against 0.92); the difference is recall (0.88 against 0.75). Softcite finds 805 of the 916 gold software, Baguette 683.
+- **Versions are where the gap is largest: F1 0.94 against 0.53**, with the same metric. So the weak version scores of Baguette come from Baguette, not from the way versions are scored.
+- **By type:** Softcite finds almost all programming environments (0.99) and most applications (0.94). Both tools are weaker on plugins (about 0.7).
+- **Operating systems:** neither tool gives them (recall 0.02–0.04). This is a choice of SoMeSci, which annotates them as software, more than a fault of the tools. `--exclude-os` gives the scores without them.
+- **Exact names:** Softcite loses less from relaxed to exact matching (0.90 → 0.82) than Baguette (0.82 → 0.68): its names are closer to the annotated forms.
+- **Mention level:** Softcite gives offsets, so its mention level is exact (F1 0.91, overlap). Baguette gives only names, and its mention level comes from searching them in the text (0.77). Compare the tools at document level first.
+- **Training data:** Softcite is trained on the Softcite corpus (biomedical and economics papers), close to the PLoS and PMC papers of SoMeSci. Baguette is distilled from an LLM, on English and French papers. Neither was trained on SoMeSci, as far as we know.
 
 ## Baguette
 
@@ -129,7 +142,7 @@ Before reading this as the quality of Baguette on full papers, check how the pap
 
 ## Softcite
 
-[Softcite software-mentions](../models/README.md#softcite-software-mentions) through the text service of the hackathon 🤗 Space. Not run yet:
+[Softcite software-mentions](../models/README.md#softcite-software-mentions) through the text service of the hackathon 🤗 Space (`software-mentions` 0.9.0-SNAPSHOT).
 
 ```bash
 for c in plos_sentences plos_methods pubmed_fulltext; do
@@ -137,6 +150,33 @@ for c in plos_sentences plos_methods pubmed_fulltext; do
   uv run python scripts/eval_somesci.py evaluate --config $c --tool softcite
 done
 ```
+
+### `plos_sentences`
+
+677 sentences. Softcite gave 866 unique names. Its names come with offsets, so all are in the text.
+
+| Level | P | R | F1 | TP | FP | FN |
+|---|---|---|---|---|---|---|
+| `doc_exact` | 0.841 | 0.795 | 0.817 | 728 | 138 | 188 |
+| `doc_relaxed` | **0.932** | **0.879** | **0.904** | 805 | 59 | 111 |
+| `mention_strict` | 0.839 | 0.789 | 0.813 | 755 | 145 | 202 |
+| `mention_overlap` | 0.934 | 0.879 | 0.906 | 841 | 59 | 116 |
+| `version` | 0.921 | 0.958 | 0.939 | 527 | 45 | 23 |
+
+| Recall by type | document (relaxed) | mention (overlap) |
+|---|---|---|
+| `PROGRAMMINGENVIRONMENT` | 0.989 | 0.952 |
+| `APPLICATION` | 0.939 | 0.939 |
+| `PLUGIN` | 0.698 | 0.750 |
+| `OPERATINGSYSTEM` | 0.018 | 0.018 |
+
+**How to read it:**
+
+- **F1 0.90** at document level (relaxed), with precision and recall both near 0.9.
+- **Document and mention levels agree** (0.904 and 0.906): Softcite's spans are its own, and it finds the occurrences of a software, not only the software.
+- **Strict vs overlap (0.81 → 0.91):** about one span in ten has other boundaries than the gold one, e.g. with or without the vendor (`IBM SPSS Statistics` against `SPSS Statistics`).
+- **Versions: F1 0.94,** on the 805 software found (550 gold versions).
+- **Plugins** are its weak point (0.70), and it gives almost no operating systems.
 
 ## Adding a tool
 
