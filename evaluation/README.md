@@ -175,7 +175,38 @@ The JSON results have:
 - **Plugins** (R or Python packages, toolboxes…) are found less often (0.67) than applications and programming languages (about 0.79).
 - **Versions are weak (F1 0.53)**, on the 683 software found: about half of the predicted versions are not the gold one, and 213 of the 479 gold versions are missed. Part of it can come from the way versions are written or attached in SoMeSci (see [Limits](#limits)); the `version_errors` show which.
 
-The `errors` of the results JSON tell real misses apart from differences of name that relaxed matching does not catch. The `pubmed_fulltext` and `plos_methods` results will be added here; longer texts should give lower scores.
+The `errors` of the results JSON tell real misses apart from differences of name that relaxed matching does not catch.
+
+### `pubmed_fulltext`
+
+97 full papers. Baguette gave 208 unique names, about 2 per paper; 11 of them are not in the text. The gold has 285 software (about 3 per paper) and 414 mentions.
+
+| Level | P | R | F1 | TP | FP | FN |
+|---|---|---|---|---|---|---|
+| `doc_exact` | 0.490 | 0.358 | 0.414 | 102 | 106 | 183 |
+| `doc_relaxed` | **0.634** | **0.456** | **0.531** | 130 | 75 | 155 |
+| `mention_strict` | 0.409 | 0.406 | 0.407 | 168 | 243 | 246 |
+| `mention_overlap` | 0.521 | 0.517 | 0.519 | 214 | 197 | 200 |
+| `version` | 0.547 | 0.603 | 0.574 | 35 | 29 | 23 |
+
+| Recall by type | document (relaxed) | mention (overlap) |
+|---|---|---|
+| `APPLICATION` | 0.475 | 0.540 |
+| `PROGRAMMINGENVIRONMENT` | 0.471 | 0.518 |
+| `PLUGIN` | 0.472 | 0.543 |
+| `OPERATINGSYSTEM` | 0.077 | 0.053 |
+
+**How to read it:**
+
+- **Much lower than on sentences: F1 0.53 against 0.82** (document, relaxed). Both precision (0.63 against 0.92) and recall (0.46 against 0.75) drop.
+- **Recall:** Baguette gives fewer names than there are gold software (208 against 285), and misses about half of them, whatever the type.
+- **Precision:** a full paper has more places for software that SoMeSci does not annotate (references, acknowledgements, software only named in passing), and longer texts give the model more chances to go wrong.
+- **Mention level is close to document level here (0.52):** a name given once is searched everywhere in the paper, so its other occurrences count too, right or wrong.
+- **Versions** are a little better than on sentences (F1 0.57), but on few software (58 gold versions).
+
+Before reading this as the quality of Baguette on full papers, check how the papers were sent: the number of paragraphs and pieces per paper and the failed paragraphs, in the Baguette outputs. A full text cut in the wrong places, or failed paragraphs, would lower recall without being a fault of the model.
+
+The `plos_methods` results will be added here.
 
 ## Limits
 
