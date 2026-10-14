@@ -7,6 +7,7 @@ Three steps, one config at a time (pubmed_fulltext, plos_methods, plos_sentences
 
 1. Write the gold annotations and the Baguette inputs:
     uv run python scripts/eval_somesci.py prepare        # all configs into data/somesci
+    uv run python scripts/eval_somesci.py prepare --source ~/Downloads/somesci_dataset   # a local copy
 
 2. Run Baguette with the client of lm-inference (resumable, see models/README.md):
     python lm-inference/deployments/baguette/baguette_client.py --endpoint $URL \\
@@ -97,11 +98,24 @@ def to_list(value):
     return [] if value is None else list(value)
 
 
+def local_parquet(source, config):
+    """Parquet file of a config in a local copy of the dataset: <config>/*.parquet, or a file named after it."""
+    candidates = sorted((source / config).glob("*.parquet")) + sorted(source.rglob(f"*{config}*.parquet"))
+    candidates += sorted(p for p in source.rglob("*.parquet") if config in p.parts)
+    if not candidates:
+        raise SystemExit(f"no parquet file for {config} in {source}")
+    return candidates[0]
+
+
 def prepare(args):
     gold_dir = args.out / "gold"
     gold_dir.mkdir(parents=True, exist_ok=True)
     for config in args.config:
-        parquet = hf_hub_download(REPO_ID, f"{config}/test-00000-of-00001.parquet", repo_type="dataset")
+        if args.source:
+            parquet = local_parquet(args.source, config)
+        else:
+            parquet = hf_hub_download(REPO_ID, f"{config}/test-00000-of-00001.parquet", repo_type="dataset")
+        print(f"{config}: reading {parquet}")
         df = pd.read_parquet(parquet)
         input_dir = args.out / "input" / config
         input_dir.mkdir(parents=True, exist_ok=True)
@@ -370,6 +384,8 @@ def main():
     p = sub.add_parser("prepare", help="write the gold annotations and the Baguette inputs")
     p.add_argument("--config", nargs="+", choices=CONFIGS, default=CONFIGS)
     p.add_argument("--out", type=Path, default=DEFAULT_DIR, help=f"output directory (default: {DEFAULT_DIR})")
+    p.add_argument("--source", type=Path,
+                   help="local copy of the dataset (<config>/test-00000-of-00001.parquet); default: download it")
     p.set_defaults(func=prepare)
 
     e = sub.add_parser("evaluate", help="score the Baguette outputs of one config")
