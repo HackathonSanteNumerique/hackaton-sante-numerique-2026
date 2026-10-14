@@ -207,7 +207,7 @@ Three questions to guide your two days:
 
 | Tool | Type | Access |
 |---|---|---|
-| **SoftCite** | Software mention extraction | HF Space *(to be confirmed)* |
+| **SoftCite** | Software mention extraction | [HF Space](https://lfoppiano-softcite-software-mentions.hf.space/) |
 | **CoPaLink** (NER) + **BioToFlow** | NER trained on BioToFlow | Hugging Face |
 | **Baguette** (dataESR) | LLM for software extraction | API via `lm-inference` client |
 

@@ -2,7 +2,7 @@
 
 | Tool | What it extracts | Trained on | Access |
 |---|---|---|---|
-| [**Softcite software-mentions**](#softcite-software-mentions) | software name, version, publisher, URL, language; *used / created / shared*; Wikidata linking | SoftCite | Docker image, REST API |
+| [**Softcite software-mentions**](#softcite-software-mentions) | software name, version, publisher, URL, language; *used / created / shared*; Wikidata linking | SoftCite | 🤗 Space (REST API), or Docker |
 | [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab + Zenodo (checkpoints in the repo) |
 | [**Baguette**](#baguette-dataesr) (dataESR) | software and dataset mentions per paragraph, with role and type (generative LLM, JSON output) | distilled from Qwen3.5-27B | 🤗 bucket; served through [`lm-inference`](#lm-inference) |
 
@@ -21,25 +21,20 @@ A [GROBID](https://github.com/kermitt2/grobid) module for software mention recog
   - `mentionContextAttributes` and `documentContextAttributes`, each with `used`, `created` and `shared` (value + score)
   - an optional Wikidata ID
 
-**Run it with Docker** (the image is about 11 GB; use a GPU if you have one):
+**Hackathon endpoint:** `https://lfoppiano-softcite-software-mentions.hf.space/` (Hugging Face Space). Open it in a browser for the web console.
 
 ```bash
-docker pull grobid/software-mentions:0.8.1
-docker run --rm --gpus all --init --ulimit core=0 -p 8060:8060 grobid/software-mentions:0.8.1
-# without GPU: drop --gpus all
-# web console at http://localhost:8060
-```
+SOFTCITE=https://lfoppiano-softcite-software-mentions.hf.space
 
-**Endpoints:**
-
-```bash
 # plain text
-curl -X POST -d "text=Analyses were performed with SPSS v25 and R 4.3." localhost:8060/service/processSoftwareText
+curl -X POST -d "text=Analyses were performed with SPSS v25 and R 4.3." $SOFTCITE/service/processSoftwareText
 # PDF
-curl --form input=@paper.pdf --form disambiguate=1 localhost:8060/service/annotateSoftwarePDF
+curl --form input=@paper.pdf $SOFTCITE/service/annotateSoftwarePDF
 # GROBID TEI: the PEPR corpus xml/ files can go in as they are
-curl --form input=@paper.grobid.tei.xml --form disambiguate=1 localhost:8060/service/annotateSoftwareTEI
+curl --form input=@paper.grobid.tei.xml $SOFTCITE/service/annotateSoftwareTEI
 ```
+
+The Space is shared by everyone, so `503` means it's busy: wait a couple of seconds and send the request again.
 
 **Annotate the whole PEPR corpus** into the format the [starter notebook](../notebooks/softcite_analysis.ipynb) expects:
 
@@ -48,14 +43,20 @@ uv run python scripts/download_pepr.py --pattern "xml/*"
 mkdir -p data/software-mentions
 for f in data/pepr-hal-data/xml/*.grobid.tei.xml; do
   b=$(basename "$f" .grobid.tei.xml)
-  curl -s --form input=@"$f" localhost:8060/service/annotateSoftwareTEI \
+  curl -s --form input=@"$f" $SOFTCITE/service/annotateSoftwareTEI \
     > "data/software-mentions/$b.tei.software.json"
 done
 ```
 
 For large batches with concurrency and retries on `503`, use the Python client [softcite/software_mentions_client](https://github.com/softcite/software_mentions_client).
 
-> **HF Space:** a hosted Softcite demo for the hackathon is *to be confirmed*.
+**Run your own instance with Docker** if you need more throughput (the image is about 11 GB; use a GPU if you have one), then set `SOFTCITE=http://localhost:8060`:
+
+```bash
+docker pull grobid/software-mentions:0.8.1
+docker run --rm --gpus all --init --ulimit core=0 -p 8060:8060 grobid/software-mentions:0.8.1
+# without GPU: drop --gpus all
+```
 
 ---
 
@@ -173,5 +174,5 @@ Keep `--threads` at 4 or below: that's the number of GPU containers the service 
 - **[OpenAlex](https://openalex.org/)** ([API docs](https://docs.openalex.org/)): metadata, citations, authors, institutions and topics. Look papers up by DOI to build author ↔ software or institution ↔ software networks.
 - **[HAL API](https://api.archives-ouvertes.fr/docs/search)**: year, document type, labs and domains for the PEPR collection. For example: `https://api.archives-ouvertes.fr/search/PEPR_SANTENUM/?q=*:*&fl=halId_s,title_s,docType_s,producedDateY_i,structAcronym_s&rows=500&wt=json`.
 - **[Software Heritage](https://www.softwareheritage.org/)**: archived source code, useful for linking detected software to repositories.
-- **[Wikidata](https://www.wikidata.org/)**: Softcite already links mentions to it with `disambiguate=1`. It's useful for normalising names and finding licence, language and developer.
+- **[Wikidata](https://www.wikidata.org/)**: useful for normalising names and finding licence, language and developer.
 - **[bio.tools](https://bio.tools/)**: a registry of bioinformatics tools, also used by CoPaLink.
