@@ -1,5 +1,7 @@
 """Evaluate Baguette on SoMeSci (https://huggingface.co/datasets/SoFairOA/somesci_dataset).
 
+Documentation: evaluation/README.md
+
 SoMeSci is gated: accept its conditions on the Hugging Face page, and log in with a
 token that can read gated repositories (`hf auth login`).
 
