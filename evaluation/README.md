@@ -78,10 +78,11 @@ done
 | `--endpoint` | the 🤗 Space | another Softcite service, e.g. `http://localhost:8060` for a Docker instance |
 | `--output-dir` | `<data>/softcite/<config>` | where to write |
 | `--threads` | 2 | parallel requests; keep it low, the Space is shared by everyone |
-| `--timeout`, `--retries`, `--retry-wait` | 300 s, 5, 10 s | a busy Space answers `503`: the request is sent again |
+| `--timeout`, `--retries`, `--retry-wait` | 120 s, 5, 10 s | a busy Space answers `503`, or does not answer: the request is sent again, and each retry is printed with its reason |
 
 - **What is sent:** a sentence or a methods section in one request. A full paper is sent paragraph by paragraph, split as for Baguette, and the offsets are moved back to the whole text. If an offset does not fall on its name, the name is searched for near it.
-- **Resuming:** documents already done are skipped. A document whose request failed is not written, so running the command again retries it.
+- **Start:** a first short request checks that the service answers; if it does not, the command stops at once with the error.
+- **Resuming:** documents already done are skipped. A document whose request failed is not written, so running the command again retries it. Ctrl-C stops at once and keeps the documents done.
 - **Output:** one `<file>.software.json` per document, with the `mentions` of Softcite (the JSON schema of the service) and offsets in the text of the document.
 
 ## 3. Evaluate

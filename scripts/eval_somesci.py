@@ -45,6 +45,7 @@ the used / created / shared attributes (Softcite) are not scored.
 
 import argparse
 import json
+import os
 import re
 import time
 import urllib.error
@@ -204,9 +205,12 @@ def softcite_request(url, text, timeout, retries, wait):
         except urllib.error.HTTPError as error:
             if error.code < 500 or attempt == retries:
                 raise
-        except (urllib.error.URLError, TimeoutError):
+            reason = f"HTTP {error.code}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
             if attempt == retries:
                 raise
+            reason = str(getattr(error, "reason", error)) or type(error).__name__
+        print(f"  {reason}, retry {attempt + 1}/{retries} in {wait} s", flush=True)
         time.sleep(wait)
 
 
@@ -248,8 +252,17 @@ def softcite(args):
     out_dir.mkdir(parents=True, exist_ok=True)
     todo = [d for d in docs if not (out_dir / f"{d['file']}.software.json").exists()]
     print(f"{args.config}: {len(todo)} documents to process ({len(docs) - len(todo)} already done)")
+    if not todo:
+        return
+    # One short request first, so that a service that does not answer is seen at once
+    print(f"checking {args.endpoint} ...", flush=True)
+    try:
+        softcite_request(args.endpoint, "Analyses were done with SPSS.", args.timeout, 0, 0)
+    except Exception as error:  # noqa: BLE001
+        raise SystemExit(f"Softcite does not answer at {args.endpoint}: {error}")
     failed = 0
-    with ThreadPoolExecutor(max_workers=args.threads) as pool:
+    pool = ThreadPoolExecutor(max_workers=args.threads)
+    try:
         futures = {pool.submit(softcite_document, doc, args.config, args): doc for doc in todo}
         for n, future in enumerate(as_completed(futures), 1):
             doc = futures[future]
@@ -257,11 +270,19 @@ def softcite(args):
                 result = future.result()
             except Exception as error:  # noqa: BLE001 - the document is retried on the next run
                 failed += 1
-                print(f"[{n}/{len(todo)}] {doc['file']}: FAILED ({error})")
+                print(f"[{n}/{len(todo)}] {doc['file']}: FAILED ({error})", flush=True)
                 continue
+            # Written under another name first: an interrupted run never leaves a half-written output
             path = out_dir / f"{doc['file']}.software.json"
-            path.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
-            print(f"[{n}/{len(todo)}] {doc['file']}: {len(result['mentions'])} mentions")
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+            tmp.replace(path)
+            print(f"[{n}/{len(todo)}] {doc['file']}: {len(result['mentions'])} mentions", flush=True)
+    except KeyboardInterrupt:
+        # Without waiting for the requests in progress; the documents done are kept
+        print("\ninterrupted: run the same command again to continue", flush=True)
+        os._exit(130)
+    pool.shutdown()
     print(f"{len(todo) - failed} done, {failed} failed -> {out_dir}" + (" (run again to retry)" if failed else ""))
 
 
@@ -582,7 +603,7 @@ def main():
     s.add_argument("--endpoint", default=SOFTCITE_URL, help=f"Softcite service (default: {SOFTCITE_URL})")
     s.add_argument("--output-dir", type=Path, help="Softcite outputs (default: <data>/softcite/<config>)")
     s.add_argument("--threads", type=int, default=2, help="parallel requests (default: 2, the Space is shared)")
-    s.add_argument("--timeout", type=int, default=300)
+    s.add_argument("--timeout", type=int, default=120, help="seconds per request (default: 120)")
     s.add_argument("--retries", type=int, default=5, help="retries on 5xx errors and timeouts")
     s.add_argument("--retry-wait", type=int, default=10, help="seconds between retries")
     s.set_defaults(func=softcite)
