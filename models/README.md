@@ -129,6 +129,8 @@ python $H/scripts/copalink_client.py \
   --brat-dir $H/data/copalink-brat
 ```
 
+You can stop it with Ctrl+C and run the same command again: the papers that already have a JSON in `--output-dir` (or a successful row in the CSV) are skipped, and failed ones are retried.
+
 Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a few papers, and `--device` to choose the device (default `auto`).
 
 **Output:**

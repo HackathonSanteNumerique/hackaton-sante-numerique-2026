@@ -8,7 +8,7 @@ The inputs are read as in the Baguette client and server (lm-inference):
 One input is one paper:
     --text          a text, given on the command line
     --input-file    one or more files
-    --input-folder  all the files of a folder, with a resumable CSV
+    --input-folder  all the files of a folder
 
 File types, by extension:
     .txt, .md  text; the paragraphs are the blocks separated by blank lines
@@ -35,6 +35,9 @@ Usage, from the nlp_models folder (the defaults of --model and --nlstruct):
 
 Without --output-dir the result is printed. --brat-dir also writes the .txt and
 .ann files of each paper, in the format of predict_files.py, to view in brat.
+
+A run can be stopped (Ctrl+C) and restarted: the papers that already have a JSON
+file in --output-dir, or a successful row in --csv-output, are skipped.
 
 The model runs on the GPU when there is one (CUDA, or MPS on a Mac), otherwise on
 the CPU; --device forces one. If a prediction fails on MPS, the client retries it
@@ -117,7 +120,7 @@ def parse_args():
     source.add_argument("--input-file", nargs="+", help="One file per paper")
     source.add_argument("--input-folder", help="Folder with one file per paper")
     parser.add_argument("--output-dir", help="One JSON file per paper; default: print")
-    parser.add_argument("--csv-output", help="CSV summary; makes the run resumable")
+    parser.add_argument("--csv-output", help="CSV summary, one row per paper")
     parser.add_argument("--brat-dir", help="Also write <paper>.txt and <paper>.ann for brat")
     parser.add_argument("--model", default="csebe_scibert_bioinfo_voc_iteration4_seed100.pt",
                         help="nlstruct checkpoint (default: the one of nlp_models)")  # fmt: skip
@@ -256,8 +259,11 @@ def write_brat(brat_dir: str, name: str, doc: dict):
         f.write("\n".join(lines) + ("\n" if lines else ""))
 
 
-def load_done(csv_path):
+def load_done(csv_path, output_dir):
+    """Names of the papers already done: a JSON in output_dir or a successful CSV row."""
     done = set()
+    if output_dir:
+        done.update(p.name.removesuffix(".json") for p in Path(output_dir).glob("*.json"))
     if csv_path and Path(csv_path).exists():
         with open(csv_path, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
@@ -289,7 +295,12 @@ def run_one(args, model, path: Path | None) -> tuple[bool, str]:
         data, doc = predict(model, Path(args.model).name, stem, paragraphs)
         output = json.dumps(data, ensure_ascii=False, indent=1)
         if args.output_dir:
-            (Path(args.output_dir) / f"{name}.json").write_text(output, encoding="utf-8")
+            # Written to a temporary file first: a run stopped while writing doesn't
+            # leave a truncated JSON that a restart would take as done.
+            path_out = Path(args.output_dir) / f"{name}.json"
+            path_tmp = path_out.with_suffix(".json.tmp")
+            path_tmp.write_text(output, encoding="utf-8")
+            path_tmp.replace(path_out)
         else:
             print(output)
         if args.brat_dir:
@@ -326,11 +337,12 @@ def main():
             for p in sorted(Path(args.input_folder).iterdir())
             if p.is_file() and p.suffix.lower() in EXTENSIONS
         ]
-    done = load_done(args.csv_output)
-    papers = [p for p in papers if p is None or p.name not in done]
+    done = load_done(args.csv_output, args.output_dir)
+    todo = [p for p in papers if p is None or p.name not in done]
 
     # Progress goes to stderr, so that a printed result can be piped.
-    print(f"{len(papers)} documents to process ({len(done)} already done)", file=sys.stderr)
+    print(f"{len(todo)} documents to process ({len(papers) - len(todo)} already done)", file=sys.stderr)
+    papers = todo
     if not papers:
         return
     model = load_model(args)
