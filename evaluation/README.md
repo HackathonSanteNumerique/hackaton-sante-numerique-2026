@@ -200,7 +200,7 @@ The `errors` of the results JSON tell real misses apart from differences of name
 
 - **Much lower than on sentences: F1 0.53 against 0.82** (document, relaxed). Both precision (0.63 against 0.92) and recall (0.46 against 0.75) drop.
 - **Recall:** Baguette gives fewer names than there are gold software (208 against 285), and misses about half of them, whatever the type.
-- **Precision:** a full paper has more places for software that SoMeSci does not annotate (references, acknowledgements, software only named in passing), and longer texts give the model more chances to go wrong.
+- **Precision:** to be checked in the `errors`. Possible causes: names that SoMeSci does not annotate as software in a full paper, or longer texts giving the model more chances to go wrong.
 - **Mention level is close to document level here (0.52):** a name given once is searched everywhere in the paper, so its other occurrences count too, right or wrong.
 - **Versions** are a little better than on sentences (F1 0.57), but on few software (58 gold versions).
 
