@@ -193,6 +193,15 @@ Predicting a software under two of its names, such as `Statistical Parametric Ma
 
 A version given for a software that SoMeSci annotates without one is a false positive. That happens when SoMeSci attaches the version to another name of the same software (see [Limits](#limits)).
 
+### Excluding types
+
+`--exclude-types` scores the tools on a subset of SoMeSci's software types. It is for comparing tools that disagree on **what is software**, not for the main results:
+
+- **Why:** bio2flow's training corpus (CPL-Article) never annotates programming languages, operating systems, containers or workflow managers as tools, while SoMeSci counts R, Python or Linux as software. On all types, bio2flow is marked wrong for something it was trained not to report. With `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the three tools are compared on applications and plugins, which all of them count.
+- **Why an option and not the recall by type:** the recall by type already shows each type, but precision cannot be split by type, because the predicted names have no type. Excluding the types from the gold, and not counting the names that match them, is the way to get precision, recall and F1 on a subset.
+- **How:** the matching is the same as with all types; the excluded software are left out of the counts afterwards. So the recall of the other types is the same with and without the exclusion, which is the check that it works.
+- **Its cost:** it removes types that some tools find well (Softcite: 0.99 recall of programming environments on sentences). Compare Baguette and Softcite on all types.
+
 ### Confidence intervals
 
 The scores depend on which documents happen to be in SoMeSci. To see how much, `evaluate` draws the documents of the config again, at random and with replacement, as many times as `--bootstrap` (1000), and computes the scores of each sample. The 95% interval goes from the 2.5th to the 97.5th percentile of these scores. A sample in which a score is undefined, e.g. a version F1 when no software of the sample has a version, is left out.

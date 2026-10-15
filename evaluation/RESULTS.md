@@ -102,12 +102,17 @@ Document level, relaxed matching:
 |---|---|---|---|---|---|---|
 | `plos_sentences` | Baguette | 0.915 | 0.746 | **0.822** (0.802–0.843) | 0.770 | 0.529 |
 | | Softcite | 0.932 | 0.879 | **0.904** (0.891–0.917) | 0.906 | 0.939 |
+| | bio2flow ‡ | 0.717 | 0.094 | **0.166** (0.133–0.197) | 0.172 | – |
 | `plos_methods` | Baguette | 0.710 | 0.438 | **0.542** (0.513–0.576) | 0.512 | 0.382 |
 | | Softcite | 0.787 | 0.834 | **0.809** (0.787–0.831) | 0.791 | 0.888 |
+| | bio2flow ‡ | 0.491 | 0.452 | **0.471** (0.427–0.511) | 0.449 | – |
 | `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** (0.462–0.598) | 0.519 | 0.574 |
 | | Softcite | 0.836 | 0.807 | **0.821** (0.784–0.866) | 0.793 | 0.935 |
+| | bio2flow ‡ | 0.367 | 0.604 | **0.456** (0.371–0.534) | 0.398 | – |
 
-bio2flow is not on this table: its training corpus never counts programming languages or operating systems as tools (see [bio2flow](#bio2flow)), so it is compared with the others on **applications and plugins only**, the software that all three tools count:
+‡ For completeness only. bio2flow is on paragraphs, and it gives no versions (–). Its training corpus never counts programming languages or operating systems as tools, so all types put it at a disadvantage by definition; compare it on applications and plugins, below.
+
+So the three tools are compared on **applications and plugins only**, the software that all three count (see [bio2flow](#bio2flow) and [Excluding types](README.md#excluding-types)):
 
 ```bash
 evaluate --config <config> --tool <tool> --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
@@ -420,11 +425,11 @@ Every document has an output (0 failed requests).
 
 Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools. Its "apps & plugins" figures were checked after the fix of `--exclude-types` (2026-10-15): they did not change.
 
-| Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
+| Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types (95% interval) | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
 |---|---|---|---|---|---|---|
-| `plos_sentences` | 677 | 121 | 916 / 769 | 0.166 | **0.191** (0.153–0.227) | 0.200 |
-| `plos_methods` | 480 | 1,053 | 1,142 / 999 | 0.471 | **0.501** (0.456–0.542) | 0.480 |
-| `pubmed_fulltext` | 97 | 477 | 285 / 255 | 0.456 | **0.471** (0.385–0.550) | 0.411 |
+| `plos_sentences` | 677 | 121 | 916 / 769 | 0.166 (0.133–0.197) | **0.191** (0.153–0.227) | 0.200 |
+| `plos_methods` | 480 | 1,053 | 1,142 / 999 | 0.471 (0.427–0.511) | **0.501** (0.456–0.542) | 0.480 |
+| `pubmed_fulltext` | 97 | 477 | 285 / 255 | 0.456 (0.371–0.534) | **0.471** (0.385–0.550) | 0.411 |
 
 - **Recall grows with the length of the text, precision falls.** On sentences it gives few names, mostly right; on full papers, many names, mostly wrong.
 - **Sentences and methods sections come from the same PLoS papers,** yet recall is 0.11 on sentences and 0.51 on methods sections. So the drop on sentences is not the domain. A likely cause is context: the model sees the sentences around a word (`doc_context` in its configuration), and an isolated sentence gives it none. This is a hypothesis, to check in the `errors`.
@@ -435,12 +440,12 @@ Document level, relaxed matching; "apps & plugins" is the run with `--exclude-ty
 
 677 sentences, 121 unique names.
 
-| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
-|---|---|---|---|---|---|---|---|
-| `doc_exact` | 0.653 | 0.086 | 0.152 | 0.650 | 0.101 | 0.175 | 0.140–0.210 |
-| `doc_relaxed` | **0.717** | **0.094** | **0.166** | **0.714** | **0.111** | **0.191** | 0.153–0.227 |
-| `mention_strict` | 0.653 | 0.085 | 0.150 | 0.650 | 0.100 | 0.173 | 0.139–0.211 |
-| `mention_overlap` | 0.750 | 0.097 | 0.172 | 0.748 | 0.115 | 0.200 | 0.162–0.236 |
+| Level | P (all) | R (all) | F1 (all) | 95% interval (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval (apps & plugins) |
+|---|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.653 | 0.086 | 0.152 | 0.121–0.183 | 0.650 | 0.101 | 0.175 | 0.140–0.210 |
+| `doc_relaxed` | **0.717** | **0.094** | **0.166** | 0.133–0.197 | **0.714** | **0.111** | **0.191** | 0.153–0.227 |
+| `mention_strict` | 0.653 | 0.085 | 0.150 | 0.119–0.183 | 0.650 | 0.100 | 0.173 | 0.139–0.211 |
+| `mention_overlap` | 0.750 | 0.097 | 0.172 | 0.140–0.204 | 0.748 | 0.115 | 0.200 | 0.162–0.236 |
 
 Counts (`doc_relaxed`): all types TP 86, FP 34, FN 830; apps & plugins TP 85, FP 34, FN 684. Recall by type (document / mention): `APPLICATION` 0.096 / 0.102, `PLUGIN` 0.349 / 0.341, `PROGRAMMINGENVIRONMENT` 0.011 / 0.010, `OPERATINGSYSTEM` 0 / 0.
 
@@ -451,12 +456,12 @@ Counts (`doc_relaxed`): all types TP 86, FP 34, FN 830; apps & plugins TP 85, FP
 
 480 methods sections, 1,053 unique names (2.2 per section) for 1,142 gold software.
 
-| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
-|---|---|---|---|---|---|---|---|
-| `doc_exact` | 0.451 | 0.416 | 0.433 | 0.450 | 0.472 | 0.461 | 0.413–0.504 |
-| `doc_relaxed` | **0.491** | **0.452** | **0.471** | **0.490** | **0.513** | **0.501** | 0.456–0.542 |
-| `mention_strict` | 0.419 | 0.386 | 0.402 | 0.418 | 0.442 | 0.430 | 0.371–0.482 |
-| `mention_overlap` | 0.468 | 0.432 | 0.449 | 0.467 | 0.494 | 0.480 | 0.424–0.533 |
+| Level | P (all) | R (all) | F1 (all) | 95% interval (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval (apps & plugins) |
+|---|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.451 | 0.416 | 0.433 | 0.387–0.475 | 0.450 | 0.472 | 0.461 | 0.413–0.504 |
+| `doc_relaxed` | **0.491** | **0.452** | **0.471** | 0.427–0.511 | **0.490** | **0.513** | **0.501** | 0.456–0.542 |
+| `mention_strict` | 0.419 | 0.386 | 0.402 | 0.347–0.451 | 0.418 | 0.442 | 0.430 | 0.371–0.482 |
+| `mention_overlap` | 0.468 | 0.432 | 0.449 | 0.396–0.501 | 0.467 | 0.494 | 0.480 | 0.424–0.533 |
 
 Counts (`doc_relaxed`): all types TP 516, FP 534, FN 626; apps & plugins TP 513, FP 534, FN 486. Recall by type: `APPLICATION` 0.485 / 0.474, `PLUGIN` 0.675 / 0.626, `PROGRAMMINGENVIRONMENT` 0.027 / 0.018, `OPERATINGSYSTEM` 0 / 0.
 
@@ -467,12 +472,12 @@ Counts (`doc_relaxed`): all types TP 516, FP 534, FN 626; apps & plugins TP 513,
 
 97 full papers, 477 unique names (4.9 per paper) for 285 gold software.
 
-| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
-|---|---|---|---|---|---|---|---|
-| `doc_exact` | 0.321 | 0.537 | 0.402 | 0.319 | 0.592 | 0.414 | 0.324–0.495 |
-| `doc_relaxed` | **0.367** | **0.604** | **0.456** | **0.364** | **0.667** | **0.471** | 0.385–0.550 |
-| `mention_strict` | 0.258 | 0.466 | 0.333 | 0.256 | 0.519 | 0.343 | 0.260–0.423 |
-| `mention_overlap` | 0.309 | 0.558 | 0.398 | 0.307 | 0.622 | 0.411 | 0.313–0.509 |
+| Level | P (all) | R (all) | F1 (all) | 95% interval (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval (apps & plugins) |
+|---|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.321 | 0.537 | 0.402 | 0.314–0.481 | 0.319 | 0.592 | 0.414 | 0.324–0.495 |
+| `doc_relaxed` | **0.367** | **0.604** | **0.456** | 0.371–0.534 | **0.364** | **0.667** | **0.471** | 0.385–0.550 |
+| `mention_strict` | 0.258 | 0.466 | 0.333 | 0.252–0.409 | 0.256 | 0.519 | 0.343 | 0.260–0.423 |
+| `mention_overlap` | 0.309 | 0.558 | 0.398 | 0.306–0.492 | 0.307 | 0.622 | 0.411 | 0.313–0.509 |
 
 Counts (`doc_relaxed`): all types TP 172, FP 297, FN 113; apps & plugins TP 170, FP 297, FN 85. Recall by type: `APPLICATION` 0.621 / 0.590, `PLUGIN` 0.944 / 0.848, `PROGRAMMINGENVIRONMENT` 0.118 / 0.074, `OPERATINGSYSTEM` 0 / 0.
 
