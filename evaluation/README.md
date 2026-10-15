@@ -140,7 +140,7 @@ uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blo
 | `--data` | `data/somesci` | the `--out` folder of `prepare` |
 | `--predictions-dir` | `<data>/<tool>/<run>` | the outputs of the tool (`--baguette-dir` still works) |
 | `--explicit-only` | off | leave out the implicit mentions: `implicit` for Baguette, `software-type` `implicit` for Softcite; no effect on bio2flow |
-| `--exclude-types` | none | leave these software types out of the gold (`APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM`); a predicted name that matches one of their software (at least as well as any other software) is not counted, neither as a true nor as a false positive, and is not matched with another software |
+| `--exclude-types` | none | leave these software types out of the gold (`APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM`); the matching is the same as with all types, then these software are left out of the counts: a name matched to one of them, or that only matches one, is neither a true nor a false positive. So the scores of the other types do not change with the exclusion |
 | `--exclude-os` | off | the same as `--exclude-types OPERATINGSYSTEM` |
 | `--bootstrap` | 1000 | samples for the 95% intervals; 0 for none |
 | `--seed` | 0 | seed of the bootstrap, so that the intervals can be reproduced |
