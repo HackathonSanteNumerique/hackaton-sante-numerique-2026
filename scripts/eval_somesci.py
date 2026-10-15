@@ -1,4 +1,4 @@
-"""Evaluate Baguette and Softcite on SoMeSci (https://huggingface.co/datasets/SoFairOA/somesci_dataset).
+"""Evaluate Baguette, Softcite and bio2flow on SoMeSci (https://huggingface.co/datasets/SoFairOA/somesci_dataset).
 
 Documentation: evaluation/README.md
 
@@ -23,9 +23,16 @@ Three steps, one config at a time (pubmed_fulltext, plos_methods, plos_sentences
    or run Softcite (the text service of the Hugging Face Space; resumable):
     uv run python scripts/eval_somesci.py softcite --config plos_methods
 
+   or run bio2flow, the CoPaLink paper-text NER (locally, see models/README.md#copalink):
+    uv run --extra copalink python scripts/copalink_client.py --model <path to the .pt model> \\
+        --input-folder data/somesci/input/plos_methods-paragraphs \\
+        --output-dir data/somesci/bio2flow/plos_methods-paragraphs \\
+        --csv-output data/somesci/bio2flow/plos_methods-paragraphs.csv
+
 3. Score the outputs, with 95% bootstrap intervals:
     uv run python scripts/eval_somesci.py evaluate --config plos_methods                    # Baguette
     uv run python scripts/eval_somesci.py evaluate --config plos_methods --tool softcite
+    uv run python scripts/eval_somesci.py evaluate --config plos_methods --tool bio2flow
     uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks     # the first runs
 
 Gold software are the APPLICATION, PLUGIN, PROGRAMMINGENVIRONMENT and OPERATINGSYSTEM
@@ -35,13 +42,14 @@ micro-averaged, with one-to-one matching:
 - document: the software of the doc (the dataset's `software` field) against the unique
   predicted names. exact: same normalised name (or alternative name / abbreviation);
   relaxed: the words of one name are all in the other ("SPSS" ~ "IBM SPSS Statistics").
-- mention: predicted spans against the gold spans. Softcite gives offsets; Baguette does not,
+- mention: predicted spans against the gold spans. Softcite and bio2flow give offsets; Baguette does not,
   so every occurrence of one of its names in the text is a predicted span. strict: same
   offsets; overlap: the spans overlap. A name that is not in the text counts as one false positive. Predicted spans that only hit an abbreviation or
   alternative name are not counted.
 
 Versions are scored on the software found (relaxed): the `version` field and the numbers of the
-predicted name, against the gold versions. --exclude-os leaves the operating systems out.
+predicted name, against the gold versions. --exclude-types (or --exclude-os) leaves software types out
+of the gold, e.g. to compare the tools on what they all count as software.
 
 SoMeSci on Hugging Face has no mention types (usage, creation...), so the roles (Baguette) and
 the used / created / shared attributes (Softcite) are not scored.
@@ -67,7 +75,7 @@ REPO_ID = "SoFairOA/somesci_dataset"
 CONFIGS = ["pubmed_fulltext", "plos_methods", "plos_sentences"]  # "default" is pubmed_fulltext
 DEFAULT_DIR = Path(__file__).resolve().parent.parent / "data" / "somesci"
 SOFTCITE_URL = "https://lfoppiano-softcite-software-mentions.hf.space"
-TOOLS = ["baguette", "softcite"]
+TOOLS = ["baguette", "softcite", "bio2flow"]
 SPLITS = ["paragraphs", "blocks"]
 LEVELS = ["doc_exact", "doc_relaxed", "mention_strict", "mention_overlap", "version"]
 
@@ -419,7 +427,7 @@ def add_unique(unique, name, version):
         unique[key] = (name, version)
 
 
-def load_baguette(path, explicit_only):
+def load_baguette(path, explicit_only, text):
     """(name, version) of the software mentions, unique by normalised name. No offsets."""
     data = json.loads(path.read_text(encoding="utf-8"))
     unique = {}
@@ -434,7 +442,7 @@ def load_baguette(path, explicit_only):
     return list(unique.values()), None
 
 
-def load_softcite(path, explicit_only):
+def load_softcite(path, explicit_only, text):
     """(name, version) of the software mentions, unique by normalised name, and their spans."""
     data = json.loads(path.read_text(encoding="utf-8"))
     unique, spans = {}, []
@@ -453,8 +461,46 @@ def load_softcite(path, explicit_only):
     return list(unique.values()), keep_longest(spans)
 
 
-LOADERS = {"baguette": load_baguette, "softcite": load_softcite}
-OUTPUT_NAMES = {"baguette": ["{}.json.json", "{}.json"], "softcite": ["{}.software.json"]}
+def collapse_whitespace(text):
+    """The text with its whitespace collapsed, as the clients read it (" ".join(text.split())), and for
+    each of its characters, its position in the text."""
+    chars, positions = [], []
+    for token in re.finditer(r"\S+", text):
+        if chars:
+            chars.append(" ")
+            positions.append(token.start() - 1)
+        chars.append(token.group())
+        positions.extend(range(token.start(), token.end()))
+    return "".join(chars), positions
+
+
+def load_bio2flow(path, explicit_only, text):
+    """(name, None) of the Tool entities, unique by normalised name, and their spans. The output of
+    copalink_client.py gives offsets in its paragraphs, whose whitespace is collapsed: they are moved
+    back to the text of the document. No versions; explicit_only does not apply."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    collapsed, positions = collapse_whitespace(text)
+    unique, spans, cursor = {}, [], 0
+    for paragraph in data.get("paragraphs", []):
+        start = collapsed.find(paragraph.get("text", ""), cursor)
+        if start < 0:
+            start = collapsed.find(paragraph.get("text", ""))
+        if start >= 0:
+            cursor = start + len(paragraph["text"])
+        for entity in paragraph.get("entities", []):
+            if entity.get("type") != "Tool" or not isinstance(entity.get("text"), str):
+                continue
+            add_unique(unique, entity["text"], None)
+            begin, end = entity.get("begin"), entity.get("end")
+            if start >= 0 and isinstance(begin, int) and isinstance(end, int) and 0 <= begin < end:
+                if start + end - 1 < len(positions):
+                    spans.append((positions[start + begin], positions[start + end - 1] + 1, entity["text"]))
+    return list(unique.values()), keep_longest(spans)
+
+
+LOADERS = {"baguette": load_baguette, "softcite": load_softcite, "bio2flow": load_bio2flow}
+OUTPUT_NAMES = {"baguette": ["{}.json.json", "{}.json"], "softcite": ["{}.software.json"],
+                "bio2flow": ["{}.json.json", "{}.json"]}
 
 
 def prf(tp, fp, fn):
@@ -509,7 +555,7 @@ def gold_software(doc):
 
 
 def evaluate(args):
-    ignored_types = {"OPERATINGSYSTEM"} if args.exclude_os else set()
+    ignored_types = set(args.exclude_types or []) | ({"OPERATINGSYSTEM"} if args.exclude_os else set())
     gold_path = args.data / "gold" / f"{args.config}.jsonl"
     run = run_name(args.config, args.split)
     predictions_dir = args.predictions_dir or args.data / args.tool / run
@@ -529,11 +575,11 @@ def evaluate(args):
             missing_files.append(doc["id"])
             predictions, predicted_spans = [], []
         else:
-            predictions, predicted_spans = LOADERS[args.tool](path, args.explicit_only)
+            predictions, predicted_spans = LOADERS[args.tool](path, args.explicit_only, doc["text"])
         n_names += len(predictions)
 
         # Document level
-        # With --exclude-os, the operating systems are left out of the gold, and the names that match one
+        # The excluded types are left out of the gold, and the names that match one of their software
         # are not counted (neither true nor false positives)
         all_gold = gold_software(doc)
         gold = [g for g in all_gold if g["type"] not in ignored_types]
@@ -616,7 +662,7 @@ def evaluate(args):
         "tool": args.tool,
         "predictions_dir": str(predictions_dir),
         "explicit_only": args.explicit_only,
-        "exclude_os": args.exclude_os,
+        "excluded_types": sorted(ignored_types),
         "bootstrap": {"samples": args.bootstrap, "seed": args.seed} if args.bootstrap else None,
         "documents": len(docs),
         "missing_outputs": len(missing_files),
@@ -648,7 +694,10 @@ def evaluate(args):
         men_r = result["recall_by_type"]["mention_overlap"].get(t, float("nan"))
         print(f"  {t:<24} {doc_r:.3f} / {men_r:.3f}")
 
-    out = args.out or args.data / "results" / args.tool / f"{run}.json"
+    # Each set of options has its own file, so that a run with options does not replace the default one
+    suffix = (".explicit-only" if args.explicit_only else "") + \
+        (".without-" + "-".join(sorted(t.lower() for t in ignored_types)) if ignored_types else "")
+    out = args.out or args.data / "results" / args.tool / f"{run}{suffix}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"-> {out}")
@@ -689,12 +738,16 @@ def main():
                    help="outputs of the tool (default: <data>/<tool>/<run>)")
     e.add_argument("--explicit-only", action="store_true",
                    help="leave out the implicit mentions (Baguette: implicit, Softcite: software-type implicit)")
-    e.add_argument("--exclude-os", action="store_true",
-                   help="leave the operating systems out of the gold, and do not count the names that match one")
+    e.add_argument("--exclude-types", nargs="+", choices=sorted(SOFTWARE_TYPES), metavar="TYPE",
+                   help="leave these software types out of the gold, and do not count the names that match one "
+                        f"of their software ({', '.join(sorted(SOFTWARE_TYPES))})")
+    e.add_argument("--exclude-os", action="store_true", help="same as --exclude-types OPERATINGSYSTEM")
     e.add_argument("--bootstrap", type=int, default=1000,
                    help="bootstrap samples for the 95%% intervals (default: 1000; 0: no intervals)")
     e.add_argument("--seed", type=int, default=0, help="seed of the bootstrap (default: 0)")
-    e.add_argument("--out", type=Path, help="JSON results (default: <data>/results/<tool>/<run>.json)")
+    e.add_argument("--out", type=Path,
+                   help="JSON results (default: <data>/results/<tool>/<run>.json, with a suffix for the options "
+                        "--explicit-only and --exclude-*)")
     e.set_defaults(func=evaluate)
 
     args = parser.parse_args()

@@ -14,7 +14,7 @@ The full description is in [README.md](README.md); this is the short version.
 ### The steps
 
 1. **`prepare`** reads SoMeSci and writes, for each document, its text and its gold annotations (`gold/<config>.jsonl`), and the Baguette input.
-2. **The tools run on the same texts.** Baguette goes through its endpoint and Softcite through its text service (`softcite` command). Each writes one output file per document.
+2. **The tools run on the same texts.** Baguette goes through its endpoint, Softcite through its text service (`softcite` command), and bio2flow runs locally with `copalink_client.py`. Each writes one output file per document.
 3. **`evaluate --tool <tool>`** reads the gold and the outputs of the tool, matches them, and counts true positives (TP), false positives (FP) and false negatives (FN). The scores are micro-averaged over all the documents of a config: P = TP / (TP + FP), R = TP / (TP + FN), F1 their harmonic mean.
 
 ### The fields used
@@ -49,6 +49,15 @@ Not used: `role`, `evidence`, `artifact_type`, `repository_or_url`, `programming
 | `software-type` | `--explicit-only` drops the `implicit` ones |
 
 Not used: `normalizedForm`, `publisher`, `url`, `language`, `context`, the `used` / `created` / `shared` attributes, and the Wikidata ids.
+
+**bio2flow** (`paragraphs[].entities[]` of each output of `copalink_client.py`, those with `type` `Tool`, the only type the model gives):
+
+| Field | Used for |
+|---|---|
+| `text` | the predicted software |
+| `begin`, `end` | the predicted span, in the paragraph; moved back to the text of the document |
+
+Not used: `confidence` (all entities count), `attributes` (empty). bio2flow gives no versions, so its version scores are 0 by construction.
 
 SoMeSci on Hugging Face has no usage / creation types, so the roles of Baguette and the attributes of Softcite cannot be scored.
 
@@ -98,6 +107,26 @@ Document level, relaxed matching:
 | `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** | 0.519 | 0.574 |
 | | Softcite | 0.836 | 0.807 | **0.821** | 0.793 | 0.935 |
 
+bio2flow is not run yet. It cannot be compared on this table: its training corpus never counts programming languages or operating systems as tools (see [bio2flow](#bio2flow)), so it is compared with the others on **applications and plugins only**, the software that all three tools count:
+
+```bash
+evaluate --config <config> --tool <tool> --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
+```
+
+Document level, relaxed matching, applications and plugins only:
+
+| Config | Tool | P | R | F1 (95% interval) |
+|---|---|---|---|---|
+| `plos_sentences` | Baguette | – | – | – |
+| | Softcite | – | – | – |
+| | bio2flow | – | – | – |
+| `plos_methods` | Baguette | – | – | – |
+| | Softcite | – | – | – |
+| | bio2flow | – | – | – |
+| `pubmed_fulltext` | Baguette | – | – | – |
+| | Softcite | – | – | – |
+| | bio2flow | – | – | – |
+
 Recall by type, document level (relaxed):
 
 | Type | Baguette sentences | Softcite sentences | Baguette methods | Softcite methods | Baguette full papers | Softcite full papers |
@@ -138,12 +167,24 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 
 **On PEPR, without gold:** on the 263 papers with both outputs, Baguette gives 7.9 unique names per paper and Softcite 8.8. Only about half are shared (51% of Baguette's names, 46% of Softcite's, with the relaxed matching). Per paragraph, Baguette gives about half as many names as Softcite: it names a software in fewer of the paragraphs where it appears. So the two tools disagree a lot on real papers too, and SoMeSci only says which one is closer to its annotators.
 
+**bio2flow** (checked on 2026-10-15):
+
+| Check | Result | Fair? |
+|---|---|---|
+| SoMeSci articles in its training data | None of the 1,257 SoMeSci articles is among the 50 PMC articles of [CPL-Article](https://doi.org/10.5281/zenodo.20746904) (2019–2026), its training corpus. Checked through the PMC ids of the PMIDs it lists | ✓ |
+| Same model as on PEPR | The PEPR outputs (`bio2flow/` on 🤗) come from `csebe_scibert_bioinfo_voc_iteration4_seed100.pt`, the default of `copalink_client.py`. Use the same file | ✓ if the same file is used |
+| Same inputs, as in normal use | The same paragraphs as the other tools; the client joins them into one document, as it does with the GROBID paragraphs on PEPR | ✓ |
+| What counts as software | **Not comparable on all types.** CPL-Article annotates bioinformatics tools only: R (written 42 times in its articles), Python (24), Linux (11), Docker (66), Nextflow (134) are never annotated as `Tool`. SoMeSci counts R, Python and Linux as software. The tools are compared on applications and plugins only (`--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`). Even there, CPL-Article's tools are bioinformatics ones; general applications such as SPSS or Excel are not in it either (Excel: written twice, not annotated) | ~ on applications and plugins |
+| Versions | The model tags no versions | not scored |
+| Domain | CPL-Article is bioinformatics workflows; SoMeSci is PLoS and PMC papers of all biomedical fields | ✗ favours the other tools |
+
 **What would make it fairer:**
 
 1. ✓ in the script, to run: send the methods sections and full papers paragraph by paragraph (the lines of the SoMeSci texts) to both tools, as on PEPR. `prepare`, then Baguette and Softcite on `plos_methods-paragraphs` and `pubmed_fulltext-paragraphs`, then `evaluate` (see [README.md](README.md#1-prepare)).
 2. Read the `errors`: whether Baguette's misses are software it does not see, or names SoMeSci counts as software and Baguette does not (or puts in `datasets`).
 3. ✓ in the script: 95% bootstrap intervals in `evaluate`, by default. Run `evaluate` again on all the runs, the first ones with `--split blocks`.
-4. Compare the two tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of the two tools overlap.
+4. Compare the tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of two tools overlap.
+5. ✓ in the script: compare the three tools on the software they all count, with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`.
 
 ## Baguette
 
@@ -350,9 +391,26 @@ done
 - **Versions: F1 0.94,** as on sentences (101 gold versions on the software found).
 - **Programming environments** are found less often than on sentences (0.71 against 0.99); the `errors` will show which ones.
 
+## bio2flow
+
+The paper-text NER of [CoPaLink](../models/README.md#copalink) (`csebe_scibert_bioinfo_voc_iteration4_seed100.pt`), trained on CPL-Article, run locally with [`copalink_client.py`](../scripts/copalink_client.py). Not run yet; the commands are in [README.md](README.md#2c-run-bio2flow), and then:
+
+```bash
+for c in plos_sentences plos_methods pubmed_fulltext; do
+  uv run python scripts/eval_somesci.py evaluate --config $c --tool bio2flow
+  uv run python scripts/eval_somesci.py evaluate --config $c --tool bio2flow --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
+done
+```
+
+What to expect, before the results:
+
+- **Programming environments and operating systems:** recall near 0, by design of its training corpus (see [Is the comparison fair?](#is-the-comparison-fair)).
+- **Versions:** none, so `version` is 0.
+- **Mention level:** exact, from its own offsets, like Softcite.
+
 ## Adding a tool
 
-1. Write the outputs of the tool, one file per document, in `data/somesci/<tool>/<config>/`.
-2. In `scripts/eval_somesci.py`, add the tool to `TOOLS`, a loader to `LOADERS` (it returns the unique `(name, version)` of a document, and its spans, or `None` when the tool has no offsets) and the name of its files to `OUTPUT_NAMES`.
+1. Write the outputs of the tool, one file per document, in `data/somesci/<tool>/<run>/`, on the inputs of `prepare` (`data/somesci/input/<run>/`).
+2. In `scripts/eval_somesci.py`, add the tool to `TOOLS`, a loader to `LOADERS` and the name of its files to `OUTPUT_NAMES`. A loader gets the output file, the `--explicit-only` flag and the text of the document; it returns the unique `(name, version)` of the document, and its spans in the text, or `None` when the tool has no offsets. `load_bio2flow` is an example of offsets given in paragraphs.
 3. Run `evaluate --tool <tool>` on the three configs.
 4. Here: add rows to the [comparison](#comparison) and a section for the tool, like the ones above.

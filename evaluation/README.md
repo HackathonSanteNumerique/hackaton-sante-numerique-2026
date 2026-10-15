@@ -1,12 +1,12 @@
-# Evaluation: Baguette and Softcite on SoMeSci
+# Evaluation: Baguette, Softcite and bio2flow on SoMeSci
 
-[`scripts/eval_somesci.py`](../scripts/eval_somesci.py) measures how well [Baguette](../models/README.md#baguette-dataesr) and [Softcite](../models/README.md#softcite-software-mentions) find software mentions, with precision, recall and F1 against the human annotations of [SoMeSci](../datasets/README.md#somesci). It uses the version converted by SoFAIR on 🤗 [`SoFairOA/somesci_dataset`](https://huggingface.co/datasets/SoFairOA/somesci_dataset).
+[`scripts/eval_somesci.py`](../scripts/eval_somesci.py) measures how well [Baguette](../models/README.md#baguette-dataesr), [Softcite](../models/README.md#softcite-software-mentions) and bio2flow, the paper-text NER of [CoPaLink](../models/README.md#copalink), find software mentions, with precision, recall and F1 against the human annotations of [SoMeSci](../datasets/README.md#somesci). It uses the version converted by SoFAIR on 🤗 [`SoFairOA/somesci_dataset`](https://huggingface.co/datasets/SoFairOA/somesci_dataset).
 
 Three steps, one config at a time:
 
 1. `prepare`: write the gold annotations and the Baguette inputs.
-2. Run the tools: Baguette with the batch client of [lm-inference](../models/README.md#lm-inference), Softcite with the `softcite` command of the script.
-3. `evaluate --tool baguette|softcite`: score the outputs. Both tools get the same metrics, so they can be compared.
+2. Run the tools: Baguette with the batch client of [lm-inference](../models/README.md#lm-inference), Softcite with the `softcite` command of the script, bio2flow with [`copalink_client.py`](../scripts/copalink_client.py).
+3. `evaluate --tool baguette|softcite|bio2flow`: score the outputs. All the tools get the same metrics, so they can be compared.
 
 ## The data
 
@@ -100,6 +100,25 @@ done
 - **Resuming:** documents already done are skipped. A document whose request failed is not written, so running the command again retries it. Ctrl-C stops at once and keeps the documents done.
 - **Output:** one `<file>.software.json` per document, with the `mentions` of Softcite (the JSON schema of the service) and offsets in the text of the document.
 
+## 2c. Run bio2flow
+
+bio2flow is the name of the outputs of the CoPaLink paper-text NER in the [PEPR repo](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data/tree/main/bio2flow): a SciBERT model trained on CPL-Article, bioinformatics papers annotated with `Tool`. It runs locally with [`scripts/copalink_client.py`](../scripts/copalink_client.py), on the same input folders as Baguette. Set it up once as in [models/README.md](../models/README.md#copalink) (`uv sync --extra copalink` and the `.pt` model of nlp_models), then:
+
+```bash
+MODEL=../nlp_models/csebe_scibert_bioinfo_voc_iteration4_seed100.pt   # the model of the PEPR outputs
+for r in plos_sentences plos_methods-paragraphs pubmed_fulltext-paragraphs; do
+  uv run --extra copalink python scripts/copalink_client.py --model $MODEL \
+    --input-folder data/somesci/input/$r \
+    --output-dir data/somesci/bio2flow/$r \
+    --csv-output data/somesci/bio2flow/$r.csv
+done
+```
+
+- **What it does:** the client joins the paragraphs of a document with blank lines, predicts the whole document, and gives each entity back to its paragraph, as on PEPR.
+- **Device:** GPU when there is one (CUDA, or MPS on a Mac), otherwise the CPU, which takes 15–30 s per PEPR paper on 24 cores. Try a few documents first.
+- **Resuming:** the documents that already have their output file are skipped.
+- **Output:** one `<file>.json.json` per document: `paragraphs[].entities[]`, with `text`, `type` (`Tool`), `begin` and `end` in the paragraph, and `confidence`.
+
 ## 3. Evaluate
 
 ```bash
@@ -107,28 +126,30 @@ uv run python scripts/eval_somesci.py evaluate --config plos_sentences          
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool softcite
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --explicit-only
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --exclude-os
+uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool bio2flow --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
 uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks   # the first runs
 ```
 
 | Option | Default | |
 |---|---|---|
 | `--config` | (required) | `plos_sentences`, `plos_methods` or `pubmed_fulltext` |
-| `--tool` | `baguette` | `baguette` or `softcite` |
+| `--tool` | `baguette` | `baguette`, `softcite` or `bio2flow` |
 | `--split` | `paragraphs` | which run to score, as for `prepare` |
 | `--data` | `data/somesci` | the `--out` folder of `prepare` |
 | `--predictions-dir` | `<data>/<tool>/<run>` | the outputs of the tool (`--baguette-dir` still works) |
-| `--explicit-only` | off | leave out the implicit mentions: `implicit` for Baguette, `software-type` `implicit` for Softcite |
-| `--exclude-os` | off | leave the operating systems out of the gold; a predicted name that matches one is not counted, neither as a true nor as a false positive |
+| `--explicit-only` | off | leave out the implicit mentions: `implicit` for Baguette, `software-type` `implicit` for Softcite; no effect on bio2flow |
+| `--exclude-types` | none | leave these software types out of the gold (`APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM`); a predicted name that matches one of their software is not counted, neither as a true nor as a false positive |
+| `--exclude-os` | off | the same as `--exclude-types OPERATINGSYSTEM` |
 | `--bootstrap` | 1000 | samples for the 95% intervals; 0 for none |
 | `--seed` | 0 | seed of the bootstrap, so that the intervals can be reproduced |
-| `--out` | `<data>/results/<tool>/<run>.json` | the JSON results |
+| `--out` | `<data>/results/<tool>/<run>.json` | the JSON results. With `--explicit-only` or excluded types, the name gets a suffix (e.g. `plos_methods-paragraphs.without-operatingsystem-programmingenvironment.json`), so that the default results are not replaced |
 
 A document without an output of the tool counts as one with no prediction. The number of these is printed, and their ids are in the results.
 
 ### What is compared
 
 - **Gold software:** the `APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT` and `OPERATINGSYSTEM` entities. `SOFTWARECOREFERENCE` ("the software", "this tool") is left out.
-- **Predictions:** the names of the software mentions, made unique per document: for Baguette, the `name` of every mention in `paragraphs[].software`; for Softcite, the `rawForm` of `software-name` of every mention. When a name is repeated, the first mention is kept, or the first one with a `version`.
+- **Predictions:** the names of the software mentions, made unique per document: for Baguette, the `name` of every mention in `paragraphs[].software`; for Softcite, the `rawForm` of `software-name` of every mention; for bio2flow, the `text` of every `Tool` entity in `paragraphs[].entities` (its `confidence` is not used). When a name is repeated, the first mention is kept, or the first one with a `version`.
 - **Normalisation:** lower case, whitespace collapsed, punctuation removed at both ends.
 
 Matching is one-to-one and the scores are micro-averaged over all the documents.
@@ -148,6 +169,8 @@ Predicting a software under two of its names, such as `Statistical Parametric Ma
 
 **Softcite** gives the offsets of each name: its spans are used as they are. When two of them overlap, the longer one is kept.
 
+**bio2flow** gives the offsets of each entity in its paragraph, as read by the client, which collapses whitespace (several spaces or a line break become one space). The script finds each paragraph in the text with its whitespace collapsed the same way, and moves the offsets back to the text of the document.
+
 **Baguette** gives names without positions. The script searches the text for each predicted name, case-insensitively and as whole words; every occurrence is a predicted span. If the name is not in the text, it searches again without the version (`SPSS v25` → `SPSS`). When two spans overlap, the longer one is kept.
 
 | Metric | A predicted span matches a gold span when |
@@ -162,7 +185,7 @@ Predicting a software under two of its names, such as `Statistical Parametric Ma
 
 `version` is scored only on the software found at document level (relaxed match). For each of them, the predicted versions are compared with the gold versions of the software:
 
-- **Predicted versions:** the version of the mention (Baguette: `version`; Softcite: the `rawForm` of `version`), plus the numbers of the predicted name that are not in the name of the software. `SPSS 22` gives `22`, `MATLAB R2014a` gives `2014a`, but `3D Slicer` gives nothing.
+- **Predicted versions:** the version of the mention (Baguette: `version`; Softcite: the `rawForm` of `version`; bio2flow gives none), plus the numbers of the predicted name that are not in the name of the software. `SPSS 22` gives `22`, `MATLAB R2014a` gives `2014a`, but `3D Slicer` gives nothing.
 - **Normalisation:** a `version`, `ver.`, `v`, `release`, `build` or `r` prefix is removed, so `Version 2.15`, `v2.15` and `2.15` are the same.
 - **Counts:** a predicted version that is a gold version is a true positive, the other predicted versions are false positives, and the gold versions not predicted are false negatives.
 
@@ -211,5 +234,7 @@ The results, with the comparison of the tools, are in [RESULTS.md](RESULTS.md).
 - **Short names:** at mention level, a short name such as `R` matches every standalone `R` of the text. That can lower the mention-level precision.
 - **Mentions lost between pieces:** the server cuts long paragraphs into pieces of about 200 tokens, and a mention split between two pieces can be lost.
 - **Inputs:** with `--split paragraphs`, both tools get the paragraphs of SoMeSci. On PEPR, Softcite reads the whole paper and spreads a name found once to its other occurrences; through the text service, paragraph by paragraph, it cannot.
-- **No offsets for Baguette:** its mention level is an approximation. It assumes Baguette finds every occurrence of a name it gives once. Softcite's mention level uses its own offsets, so it is exact. Compare the two tools at document level first.
+- **No offsets for Baguette:** its mention level is an approximation. It assumes Baguette finds every occurrence of a name it gives once. Softcite's and bio2flow's mention levels use their own offsets, so they are exact. Compare the tools at document level first.
+- **bio2flow and versions:** the model only tags `Tool`, so its version scores are 0 by construction: leave them out of comparisons.
+- **bio2flow and what a tool is:** CPL-Article, its training corpus, never annotates programming languages, operating systems, containers or workflow managers as `Tool`, though they are written in its articles: R 42 times, Python 24, Linux 11, Docker 66, Nextflow 134, all without annotation. SoMeSci counts R, Python or Linux as software. So bio2flow misses programming environments and operating systems by design. Compare it with the other tools with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, on applications and plugins, which all the tools count as software.
 - **Softcite on the 🤗 Space:** the Space is shared and may be slower or busy; scores do not depend on it, but run time does. The version of the service (`application`, `version` in each output) is in the outputs.

@@ -83,7 +83,7 @@ There are no gold annotations on the PEPR corpus. Ways to judge extraction quali
 - manual annotation of a **small sample**
 - transfer from the annotated corpora
 
-To start, [`evaluation/`](evaluation/README.md) scores Baguette and Softcite against SoMeSci, a corpus annotated by hand ([results](evaluation/RESULTS.md)).
+To start, [`evaluation/`](evaluation/README.md) scores Baguette, Softcite and bio2flow against SoMeSci, a corpus annotated by hand ([results](evaluation/RESULTS.md)).
 
 Any proposal is welcome!
 
