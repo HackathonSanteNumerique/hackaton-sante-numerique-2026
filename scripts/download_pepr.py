@@ -1,7 +1,7 @@
 """Download the PEPR Santé Numérique HAL corpus from the Hugging Face Hub.
 
-The repo holds the GROBID outputs (grobid/xml, grobid/json, grobid/md) and the
-Softcite software-mentions output (softcite/*.software.json, softcite/*.tei.software.json).
+The repo holds the GROBID outputs (grobid/xml, grobid/json, grobid/md) and the outputs of the
+tools on them: softcite/, baguette/, bio2flow/ and bio2flow_json/.
 
 Usage:
     uv run python scripts/download_pepr.py                            # everything into data/pepr-hal-data
@@ -15,8 +15,8 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 
 REPO_ID = "HackatonSanteNumerique/pepr-hal-data"
-# The data lives in a model-type repo: https://huggingface.co/HackatonSanteNumerique/pepr-hal-data
-REPO_TYPE = "model"
+# A dataset repo: https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data
+REPO_TYPE = "dataset"
 DEFAULT_DIR = Path(__file__).resolve().parent.parent / "data" / "pepr-hal-data"
 
 

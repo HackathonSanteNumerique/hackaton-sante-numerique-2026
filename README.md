@@ -34,7 +34,7 @@ Three questions to guide your two days:
 | 👥 **Group work** | [`groups/`](groups/README.md): one folder per group, plus a template |
 | 💻 **Environment** | [`environment/`](environment/README.md): Biosphere Jupyter VM, opencode + Albert API |
 | 🎞️ **Opening slides** | [`presentation/`](presentation/README.md) |
-| 🤗 **PEPR data** | [HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/HackatonSanteNumerique/pepr-hal-data): GROBID outputs + Softcite predictions |
+| 🤗 **PEPR data** | [HackatonSanteNumerique/pepr-hal-data](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data): GROBID outputs + Softcite predictions |
 
 ## Getting started
 
