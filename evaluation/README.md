@@ -114,6 +114,8 @@ for r in plos_sentences plos_methods-paragraphs pubmed_fulltext-paragraphs; do
 done
 ```
 
+**On Modal**, without a local GPU: deploy [`scripts/bio2flow_modal.py`](../scripts/bio2flow_modal.py) (see [models/README.md](../models/README.md#run-it-on-modal-bio2flow)), then run the same loop with `--endpoint <URL>` instead of `--model` (no `--extra copalink` needed). The outputs are the same.
+
 - **What it does:** the client joins the paragraphs of a document with blank lines, predicts the whole document, and gives each entity back to its paragraph, as on PEPR.
 - **Device:** GPU when there is one (CUDA, or MPS on a Mac), otherwise the CPU, which takes 15–30 s per PEPR paper on 24 cores. Try a few documents first.
 - **Resuming:** the documents that already have their output file are skipped.

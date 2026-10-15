@@ -50,6 +50,12 @@ with a successful row in --csv-output are skipped.
 The model runs on the GPU when there is one (CUDA, or MPS on a Mac), otherwise on
 the CPU; --device forces one. If a prediction fails on MPS, the client retries it
 and runs the rest of the papers on the CPU.
+
+With --endpoint, the model runs on Modal instead (scripts/bio2flow_modal.py): the
+client reads the papers, sends their paragraphs, and writes the same files. Nothing
+but the standard library is needed then; --threads papers are sent at once, and a
+request that fails with a 5xx answer or a network error is sent again (--retries).
+--brat-dir needs the local model.
 """
 
 import argparse
@@ -59,8 +65,12 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import traceback
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -161,7 +171,17 @@ def parse_args():
                         help="Sequences per SciBERT batch; lower it if the GPU runs out of memory (default: 32)")  # fmt: skip
     parser.add_argument("--device", default="auto",
                         help="auto (default: cuda, then mps, then cpu), cuda, cuda:1, mps or cpu")  # fmt: skip
+    remote = parser.add_argument_group("remote model (scripts/bio2flow_modal.py)")
+    remote.add_argument("--endpoint", help="URL of the Modal endpoint; the model then does not run locally")
+    remote.add_argument("--threads", type=int, default=4,
+                        help="papers sent at once (default: 4, the GPU containers of the deployment)")  # fmt: skip
+    remote.add_argument("--timeout", type=int, default=1800,
+                        help="seconds per request (default: 1800; the first one waits for a container)")  # fmt: skip
+    remote.add_argument("--retries", type=int, default=5, help="retries on 5xx answers and network errors")
+    remote.add_argument("--retry-wait", type=int, default=20, help="seconds between retries (default: 20)")
     args = parser.parse_args()
+    if args.endpoint and args.brat_dir:
+        parser.error("--brat-dir needs the local model: it is not available with --endpoint")
     if args.input_folder and not (args.output_dir or args.softcite_dir):
         parser.error("--input-folder requires --output-dir or --softcite-dir")
     return args
@@ -295,6 +315,28 @@ def load_model(args):
     else:
         print(f"Model loaded on {device}", file=sys.stderr)
     return model
+
+
+def remote_predict(args, name: str, paragraphs: list[str]) -> dict:
+    """The prediction of a paper by the Modal endpoint, the same JSON as predict.
+    A 5xx answer or a network error is retried: the first request after an idle
+    period waits for a container to load the model."""
+    body = json.dumps({"name": name, "paragraphs": paragraphs}).encode("utf-8")
+    request = urllib.request.Request(args.endpoint, data=body, headers={"Content-Type": "application/json"})
+    for attempt in range(args.retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=args.timeout) as response:
+                return json.loads(response.read())
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or attempt == args.retries:
+                raise RuntimeError(f"HTTP {e.code}: {e.read().decode('utf-8', errors='replace')[:300]}") from e
+            reason = f"HTTP {e.code}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if attempt == args.retries:
+                raise
+            reason = str(getattr(e, "reason", e)) or type(e).__name__
+        print(f"{name}: {reason}, retry {attempt + 1}/{args.retries} in {args.retry_wait}s", file=sys.stderr, flush=True)
+        time.sleep(args.retry_wait)
 
 
 def split_label(label) -> tuple[str, list[str]]:
@@ -490,15 +532,20 @@ def load_csv_done(csv_path) -> set:
     return done
 
 
+CSV_LOCK = threading.Lock()
+
+
 def append_row(csv_path, row):
     if not csv_path:
         return
-    write_header = not Path(csv_path).exists()
-    with open(csv_path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
+    # With --endpoint, several papers finish at once.
+    with CSV_LOCK:
+        write_header = not Path(csv_path).exists()
+        with open(csv_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=FIELDS)
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
 
 
 def run_one(args, model, path: Path | None) -> tuple[bool, str]:
@@ -511,7 +558,10 @@ def run_one(args, model, path: Path | None) -> tuple[bool, str]:
             raise ValueError("no paragraph found in the input")
         # brat and the doc id use the name without the extension(s).
         stem = name.split(".")[0] if path else name
-        data, doc = predict(model, Path(args.model).name, stem, paragraphs)
+        if args.endpoint:
+            data, doc = remote_predict(args, stem, paragraphs), None
+        else:
+            data, doc = predict(model, Path(args.model).name, stem, paragraphs)
         if args.output_dir:
             write_json(Path(args.output_dir) / f"{name}.json", data)
         if args.softcite_dir:
@@ -560,8 +610,22 @@ def main():
     papers = todo
     if not papers:
         return
-    model = load_model(args)
     failures = 0
+    if args.endpoint:
+        pool = ThreadPoolExecutor(max_workers=args.threads)
+        try:
+            futures = [pool.submit(run_one, args, None, path) for path in papers]
+            for i, future in enumerate(as_completed(futures), 1):
+                success, message = future.result()
+                failures += not success
+                print(f"[{i}/{len(papers)}] {message}", file=sys.stderr, flush=True)
+        except KeyboardInterrupt:
+            # Without waiting for the requests in progress; the papers done are kept.
+            print("\nInterrupted: run the same command again to continue", file=sys.stderr, flush=True)
+            os._exit(130)
+        pool.shutdown()
+        sys.exit(1 if failures else 0)
+    model = load_model(args)
     for i, path in enumerate(papers, 1):
         success, message = run_one(args, model, path)
         failures += not success

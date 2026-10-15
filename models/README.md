@@ -3,7 +3,7 @@
 | Tool | What it extracts | Trained on | Access |
 |---|---|---|---|
 | [**Softcite software-mentions**](#softcite-software-mentions) | software name, version, publisher, URL, language; *used / created / shared*; Wikidata linking | SoftCite | 🤗 Space (REST API), or Docker |
-| [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab ([nlp_models](https://gitlab.liris.cnrs.fr/sharefair/nlp_models)); run locally (GPU or CPU) with [`copalink_client.py`](#run-the-paper-text-ner-on-the-pepr-corpus) |
+| [**CoPaLink**](#copalink) | bioinformatics `Tool` mentions in papers and Nextflow code, plus article↔code linking | CPL-Article, CPL-Code (BioToFlow lineage) | LIRIS GitLab ([nlp_models](https://gitlab.liris.cnrs.fr/sharefair/nlp_models)); run locally (GPU or CPU) with [`copalink_client.py`](#run-the-paper-text-ner-on-the-pepr-corpus), or [on Modal](#run-it-on-modal-bio2flow) |
 | [**Baguette**](#baguette-dataesr) (dataESR) | software and dataset mentions per paragraph, with role and type (generative LLM, JSON output) | distilled from Qwen3.5-27B | 🤗 bucket; served through [`lm-inference`](#lm-inference) |
 
 Plus [external data sources](#external-data) to enrich your results.
@@ -159,6 +159,43 @@ Other options: `--text "..."` for a quick test, `--input-file a.xml b.xml` for a
   The [starter notebook](../notebooks/softcite_analysis.ipynb) runs on it if you set `DATA_DIR` to that folder, except the cells about purposes and programming languages, which come out empty.
 - **CSV summary:** one row per paper.
 - **`--brat-dir`:** `<paper>.txt` + `<paper>.ann`, written exactly as `predict_files.py` does (nlstruct's `export_to_brat`, then `transform_ann.changeFormat`), to open in the brat viewer that comes with nlp_models. The offsets refer to that `.txt`, which is the text given to the model: for a TEI input, its paragraphs separated by blank lines.
+
+### Run it on Modal (bio2flow)
+
+The outputs of this model are called **bio2flow** in the [PEPR repo](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data/tree/main/bio2flow). Without a GPU, or to share one service with the team, [`scripts/bio2flow_modal.py`](../scripts/bio2flow_modal.py) serves it on [Modal](https://modal.com/), with the same code as the client: the paragraphs of a paper are predicted as one document, and the response is the JSON that `copalink_client.py` writes.
+
+- **Model:** downloaded once from the public nlp_models repo (474 MB, no git-lfs needed) into the Modal volume `bio2flow-model`, which also caches SciBERT.
+- **Environment:** the versions of the `copalink` extra (torch 2.14.1, transformers 4.56.1, nlstruct at the same commit).
+- **GPU:** L4 by default, at most 4 containers, one paper at a time per container. They stop after 5 minutes without requests.
+
+```bash
+modal token new                                      # once, if Modal is not set up
+uvx modal deploy scripts/bio2flow_modal.py           # prints the URL of extract_endpoint
+uvx modal run scripts/bio2flow_modal.py              # smoke test, without the endpoint
+BIO2FLOW_GPU=T4 BIO2FLOW_MAX_CONTAINERS=2 uvx modal deploy scripts/bio2flow_modal.py   # other parameters
+```
+
+**Request:** one paper, as JSON `{"paragraphs": [...], "name": "..."}` or `{"text": "...", "name": "..."}`:
+
+```bash
+URL=https://<workspace>--bio2flow-app-extract-endpoint.modal.run
+curl -X POST $URL -H 'Content-Type: application/json' \
+  -d '{"paragraphs": ["Reads were aligned with BWA and sorted with samtools."], "name": "test"}'
+```
+
+The response adds `request_seconds` (with the wait for a container: the first request after an idle period starts one and loads the model, and the very first one also downloads it), `cost_usd` and `gpu` to the JSON of the client. HTTP 400 means the input could not be read, 500 that the service failed.
+
+**Batch:** the client reads the papers locally and sends their paragraphs with `--endpoint`. It writes the same files and resumes the same way, and needs nothing beyond the standard library (no torch):
+
+```bash
+uv run python scripts/copalink_client.py --endpoint $URL \
+  --input-folder data/pepr-hal-data/grobid/xml \
+  --output-dir data/bio2flow --csv-output data/bio2flow.csv --softcite-dir data/bio2flow-softcite
+```
+
+- **`--threads`** (default 4): papers sent at once; keep it at most the number of containers.
+- **`--retries`, `--retry-wait`, `--timeout`** (5, 20 s, 1,800 s): a 5xx answer or a network error is retried.
+- **`--brat-dir`** is not available with `--endpoint`: it needs the nlstruct document, which stays on the server.
 
 ---
 
