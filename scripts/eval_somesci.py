@@ -583,10 +583,14 @@ def evaluate(args):
         # are not counted (neither true nor false positives)
         all_gold = gold_software(doc)
         gold = [g for g in all_gold if g["type"] not in ignored_types]
+        # A name that matches an excluded software at least as well as any other software is that software:
+        # it takes no part in the matching, so it cannot match another software ("R" ~ "R package nlme")
+        excluded_gold = [g for g in all_gold if g["type"] in ignored_types]
+        best = lambda name, golds: max((match_score(name, g["aliases"]) for g in golds), default=0)
         ignored = {i for i, (name, _) in enumerate(predictions)
-                   if any(match_score(name, g["aliases"]) for g in all_gold if g["type"] in ignored_types)}
-        pairs = [(score, i, j) for i, (name, _) in enumerate(predictions) for j, g in enumerate(gold)
-                 if (score := match_score(name, g["aliases"]))]
+                   if (score := best(name, excluded_gold)) and score >= best(name, gold)}
+        pairs = [(score, i, j) for i, (name, _) in enumerate(predictions) if i not in ignored
+                 for j, g in enumerate(gold) if (score := match_score(name, g["aliases"]))]
         for level, min_score in (("doc_exact", 2), ("doc_relaxed", 1)):
             matched = greedy([p for p in pairs if p[0] >= min_score])
             # Another name of a software already matched (e.g. its abbreviation) is not a false positive
