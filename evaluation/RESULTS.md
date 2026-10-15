@@ -115,23 +115,25 @@ evaluate --config <config> --tool <tool> --exclude-types PROGRAMMINGENVIRONMENT 
 
 Document level, relaxed matching, applications and plugins only:
 
-> **To re-run.** These numbers were computed before a fix of `--exclude-types` (2026-10-15). A name that matched an excluded software, such as `R`, was not counted as a false positive, as intended, but it could still match *another* software by relaxed matching: `R` ~ `R package nlme`, a plugin, which then counted as found. That inflated the recall on applications and plugins. Now the matching is the same as with all types, and the excluded software are left out of the counts afterwards, so excluding a type cannot change how the other software are matched (a first fix, earlier the same day, still did: a name such as `lme4 R package` was dropped as `R`). The bio2flow rows below are probably little affected (it rarely gives names such as `R` or `Python`: 86 true positives on all types, 85 on applications and plugins, on sentences), but they have to be computed again too, with `evaluate --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM` on the same outputs. The results on all types are not affected.
+Computed on 2026-10-15, after the fix of `--exclude-types`: the matching is the same as with all types, and the excluded software are left out of the counts afterwards (before the fix, a name of an excluded software such as `R` could match another one, `R package nlme`). The check holds: the recall of applications and of plugins is the same here as on all types, for every tool and config. bio2flow's numbers did not change with the fix.
 
 | Config | Tool | P | R | F1 (95% interval) |
 |---|---|---|---|---|
-| `plos_sentences` | Baguette | – | – | – |
-| | Softcite | – | – | – |
+| `plos_sentences` | Baguette | 0.906 | 0.791 | **0.844** (0.824–0.866) |
+| | Softcite | 0.923 | 0.926 | **0.925** (0.911–0.938) |
 | | bio2flow | 0.714 | 0.111 | **0.191** (0.153–0.227) |
-| `plos_methods` | Baguette | – | – | – |
-| | Softcite | – | – | – |
+| `plos_methods` | Baguette | 0.679 | 0.432 | **0.528** (0.497–0.563) |
+| | Softcite | 0.766 | 0.847 | **0.805** (0.779–0.829) |
 | | bio2flow | 0.490 | 0.513 | **0.501** (0.456–0.542) |
-| `pubmed_fulltext` | Baguette | – | – | – |
-| | Softcite | – | – | – |
+| `pubmed_fulltext` | Baguette | 0.617 | 0.474 | **0.537** (0.464–0.610) |
+| | Softcite | 0.829 | 0.855 | **0.842** (0.797–0.893) |
 | | bio2flow | 0.364 | 0.667 | **0.471** (0.385–0.550) |
 
-Baguette and Softcite on applications and plugins only: to run, with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, on the same runs. bio2flow's rows are on paragraphs (`plos_methods-paragraphs`, `pubmed_fulltext-paragraphs`).
+Baguette and Softcite are on the first runs (`--split blocks`), bio2flow on paragraphs (`plos_methods-paragraphs`, `pubmed_fulltext-paragraphs`): on sentences the inputs are the same.
 
-- **bio2flow is below both tools, even on applications and plugins.** Its F1 there (0.19, 0.50, 0.47) is below the F1 of Baguette and Softcite on *all* types (0.82 and 0.90 on sentences, 0.53–0.81 on longer texts). Far below Softcite everywhere; on longer texts, only 0.04–0.06 below Baguette, and above Baguette in recall of applications (0.49 against 0.43 on methods sections, 0.62 against 0.48 on full papers). Excluding programming environments and operating systems raises its F1 by only 0.02–0.03.
+- **The ranking does not change: Softcite, then Baguette, then bio2flow.** Softcite is clearly ahead everywhere: its interval overlaps neither of the others in any config.
+- **The exclusion changes little for Baguette and Softcite** (F1 within 0.03 of their all-types F1: Baguette 0.822 → 0.844, 0.542 → 0.528, 0.531 → 0.537; Softcite 0.904 → 0.925, 0.809 → 0.805, 0.821 → 0.842), and little for bio2flow (+0.02 to +0.03). So bio2flow's low scores are not an effect of what counts as software.
+- **bio2flow against Baguette:** far below on sentences (0.19 against 0.84). On the longer texts the two are close and their intervals overlap (methods 0.456–0.542 against 0.497–0.563, full papers 0.385–0.550 against 0.464–0.610), so the difference there is not clear. They get there differently: bio2flow has the higher recall (0.51 against 0.43 on methods sections, 0.67 against 0.47 on full papers), Baguette the higher precision (0.68 against 0.49, 0.62 against 0.36).
 - **Sentences:** bio2flow names a software in few of them (121 names for 916 gold software), so recall is 0.11. Its precision there is the best of its three configs (0.71).
 - **Longer texts:** recall rises (0.51 on methods sections, 0.67 on full papers), but precision falls (0.49, 0.36). On full papers it gives 477 names for 285 gold software.
 
@@ -416,7 +418,7 @@ Every document has an output (0 failed requests).
 
 ### Summary
 
-Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools. The "apps & plugins" figures of this section were computed before the fix of `--exclude-types` and are to be re-run (see the [comparison](#comparison)); the "all" figures are not affected.
+Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools. Its "apps & plugins" figures were checked after the fix of `--exclude-types` (2026-10-15): they did not change.
 
 | Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
 |---|---|---|---|---|---|---|
