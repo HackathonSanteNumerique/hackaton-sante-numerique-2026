@@ -3,8 +3,9 @@
 Scores of the software-mention tools against [SoMeSci](../datasets/README.md#somesci), computed by [`scripts/eval_somesci.py`](../scripts/eval_somesci.py). How they are computed, and their limits, are in [README.md](README.md).
 
 - **Main score:** document level with relaxed matching (`doc_relaxed`): the software of a document against the unique names given by the tool.
-- **All the numbers:** `data/somesci/results/<tool>/<config>.json`, with the errors of each document.
+- **All the numbers:** `data/somesci/results/<tool>/<run>.json`, with the errors of each document.
 - **Run:** all software types, implicit mentions included (no `--explicit-only`, no `--exclude-os`), unless written otherwise.
+- **Inputs of the results below:** the first runs (`--split blocks`): a methods section sent in one block, a full paper split at blank lines, which in SoMeSci are sections. They have no confidence intervals. They will be replaced by runs on paragraphs (`--split paragraphs`, now the default), with 95% intervals; see [Is the comparison fair?](#is-the-comparison-fair). `plos_sentences` is the same with both.
 
 ## How the evaluation works
 
@@ -129,19 +130,20 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 | Same tool versions as on PEPR | Softcite: the same service, `software-mentions` 0.9.0-SNAPSHOT, revision `54efbc6`, for PEPR and SoMeSci. Baguette: the same endpoint, which cuts long inputs on both | ✓ |
 | SoMeSci articles in the training data of Softcite | None of the 1,257 SoMeSci articles (PMC ids) is in the Softcite corpus of the [software-mentions](https://github.com/softcite/software-mentions) repo (2,561 PMC articles in training, about 530 in the holdout). The repo uses SoMeSci only to build training data for the used / created / shared classifier, which is not scored here. Not checked: whether the weights on the Space were trained on more data than the repo | ✓ as far as the repo shows |
 | SoMeSci articles in the training data of Baguette | Unknown: its 531k training paragraphs are not public. Its labels come from an LLM teacher, not from SoMeSci, so at most the texts could overlap, not the annotations | ? |
-| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service | ~ see below |
+| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service **Fixed in the script:** `--split paragraphs` (now the default) sends both tools the paragraphs of SoMeSci, one per line of the text. To be run | ~ until the runs on paragraphs |
 | Effect of cutting on Baguette | Measured on PEPR, paragraph by paragraph, against the Softcite mentions of the same paragraph: Baguette gives 0.48 names per Softcite name on paragraphs it did not cut (3,307 paragraphs), 0.42 on paragraphs it cut (1,131). Cutting costs little | ✓ probably |
 | Failed requests counted as misses | On PEPR, 7 of 22,410 Baguette paragraphs failed. On SoMeSci, not checked | ✓ probably |
 | What counts as software | Not neutral. SoMeSci and Softcite are human annotation schemes for the same task, with similar choices on names and versions; Softcite learned them from human annotations, Baguette from an LLM teacher with its own definition (software apart from datasets, roles…). SoMeSci measures agreement with such a scheme, which favours a model trained on one | ✗ favours Softcite |
-| Uncertainty | No confidence intervals. The gaps are large (0.08 to 0.29 of F1, on 285 to 1,142 gold software), but a bootstrap over documents would say how sure they are | ~ |
+| Uncertainty | The gaps are large (0.08 to 0.29 of F1, on 285 to 1,142 gold software). **Added to the script:** `evaluate` gives 95% bootstrap intervals over the documents. To be added to these tables when `evaluate` is run again | ~ until then |
 
 **On PEPR, without gold:** on the 263 papers with both outputs, Baguette gives 7.9 unique names per paper and Softcite 8.8. Only about half are shared (51% of Baguette's names, 46% of Softcite's, with the relaxed matching). Per paragraph, Baguette gives about half as many names as Softcite: it names a software in fewer of the paragraphs where it appears. So the two tools disagree a lot on real papers too, and SoMeSci only says which one is closer to its annotators.
 
 **What would make it fairer:**
 
-1. Send the methods sections and full papers paragraph by paragraph (the lines of the SoMeSci texts) to both tools, as on PEPR, and run both again on `plos_methods` and `pubmed_fulltext`.
+1. ✓ in the script, to run: send the methods sections and full papers paragraph by paragraph (the lines of the SoMeSci texts) to both tools, as on PEPR. `prepare`, then Baguette and Softcite on `plos_methods-paragraphs` and `pubmed_fulltext-paragraphs`, then `evaluate` (see [README.md](README.md#1-prepare)).
 2. Read the `errors`: whether Baguette's misses are software it does not see, or names SoMeSci counts as software and Baguette does not (or puts in `datasets`).
-3. Add bootstrap confidence intervals to `evaluate`.
+3. ✓ in the script: 95% bootstrap intervals in `evaluate`, by default. Run `evaluate` again on all the runs, the first ones with `--split blocks`.
+4. Compare the two tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of the two tools overlap.
 
 ## Baguette
 

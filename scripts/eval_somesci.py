@@ -11,18 +11,22 @@ Three steps, one config at a time (pubmed_fulltext, plos_methods, plos_sentences
     uv run python scripts/eval_somesci.py prepare        # all configs into data/somesci
     uv run python scripts/eval_somesci.py prepare --source ~/Downloads/somesci_dataset   # a local copy
 
+   Methods sections and full papers are split into paragraphs (each line), in the folders
+   <config>-paragraphs; --split blocks gives the inputs of the first runs, in <config>.
+
 2. Run Baguette with the client of lm-inference (resumable, see models/README.md):
     python lm-inference/deployments/baguette/baguette_client.py --endpoint $URL \\
-        --input-folder data/somesci/input/plos_sentences \\
-        --output-dir data/somesci/baguette/plos_sentences \\
-        --csv-output data/somesci/baguette/plos_sentences.csv --threads 4 --no-analyze
+        --input-folder data/somesci/input/plos_methods-paragraphs \\
+        --output-dir data/somesci/baguette/plos_methods-paragraphs \\
+        --csv-output data/somesci/baguette/plos_methods-paragraphs.csv --threads 4 --no-analyze
 
    or run Softcite (the text service of the Hugging Face Space; resumable):
-    uv run python scripts/eval_somesci.py softcite --config plos_sentences
+    uv run python scripts/eval_somesci.py softcite --config plos_methods
 
-3. Score the outputs:
-    uv run python scripts/eval_somesci.py evaluate --config plos_sentences                    # Baguette
-    uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool softcite
+3. Score the outputs, with 95% bootstrap intervals:
+    uv run python scripts/eval_somesci.py evaluate --config plos_methods                    # Baguette
+    uv run python scripts/eval_somesci.py evaluate --config plos_methods --tool softcite
+    uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks     # the first runs
 
 Gold software are the APPLICATION, PLUGIN, PROGRAMMINGENVIRONMENT and OPERATINGSYSTEM
 entities; SOFTWARECOREFERENCE ("the software") is left out. Two levels are scored,
@@ -32,8 +36,8 @@ micro-averaged, with one-to-one matching:
   predicted names. exact: same normalised name (or alternative name / abbreviation);
   relaxed: the words of one name are all in the other ("SPSS" ~ "IBM SPSS Statistics").
 - mention: predicted spans against the gold spans. Softcite gives offsets; Baguette does not,
-  so every occurrence of one of its names in the text is a predicted span. strict: same offsets; overlap: the spans overlap. A name that is not
-  in the text counts as one false positive. Predicted spans that only hit an abbreviation or
+  so every occurrence of one of its names in the text is a predicted span. strict: same
+  offsets; overlap: the spans overlap. A name that is not in the text counts as one false positive. Predicted spans that only hit an abbreviation or
   alternative name are not counted.
 
 Versions are scored on the software found (relaxed): the `version` field and the numbers of the
@@ -55,6 +59,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from huggingface_hub import hf_hub_download
 
@@ -63,6 +68,8 @@ CONFIGS = ["pubmed_fulltext", "plos_methods", "plos_sentences"]  # "default" is 
 DEFAULT_DIR = Path(__file__).resolve().parent.parent / "data" / "somesci"
 SOFTCITE_URL = "https://lfoppiano-softcite-software-mentions.hf.space"
 TOOLS = ["baguette", "softcite"]
+SPLITS = ["paragraphs", "blocks"]
+LEVELS = ["doc_exact", "doc_relaxed", "mention_strict", "mention_overlap", "version"]
 
 LABELS = ["O"] + [
     f"{prefix}-{entity}"
@@ -108,6 +115,24 @@ def split_paragraphs(text):
     if len(blocks) == 1:
         blocks = text.split("\n")
     return [block.strip() for block in blocks if block.strip()] or [text]
+
+
+def paragraphs_of(text, config, split):
+    """The paragraphs sent to the tools.
+    paragraphs: each line of the text, the paragraphs of SoMeSci, as GROBID paragraphs on PEPR.
+    blocks (the first runs): a methods section in one block, a full paper split at blank lines.
+    A sentence is always one block."""
+    if config == "plos_sentences":
+        return [text]
+    if split == "blocks":
+        return split_paragraphs(text) if config == "pubmed_fulltext" else [text]
+    return [line.strip() for line in text.split("\n") if line.strip()] or [text]
+
+
+def run_name(config, split):
+    """Folder name of the inputs and outputs of a config. The paragraph split has its own folders,
+    so that the outputs of the first runs (blocks) are kept apart and a resumed run never mixes them."""
+    return config if split == "blocks" or config == "plos_sentences" else f"{config}-paragraphs"
 
 
 def safe_name(doc_id, used):
@@ -167,9 +192,9 @@ def prepare(args):
             parquet = hf_hub_download(REPO_ID, f"{config}/test-00000-of-00001.parquet", repo_type="dataset")
         print(f"{config}: reading {parquet}")
         df = pd.read_parquet(parquet)
-        input_dir = args.out / "input" / config
+        input_dir = args.out / "input" / run_name(config, args.split)
         input_dir.mkdir(parents=True, exist_ok=True)
-        used, mismatches, n_entities = set(), 0, 0
+        used, mismatches, n_entities, sizes = set(), 0, 0, []
         with open(gold_dir / f"{config}.jsonl", "w", encoding="utf-8") as gold:
             for row in df.itertuples(index=False):
                 tokens = to_list(row.tokens)
@@ -184,10 +209,18 @@ def prepare(args):
                 name = safe_name(row.id, used)
                 gold.write(json.dumps({"id": row.id, "file": name, "text": row.text,
                                        "entities": entities, "software": software}, ensure_ascii=False) + "\n")
-                payload = {"paragraphs": split_paragraphs(row.text) if config == "pubmed_fulltext" else [row.text]}
-                (input_dir / f"{name}.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+                paragraphs = paragraphs_of(row.text, config, args.split)
+                sizes.append([len(paragraph.split()) for paragraph in paragraphs])
+                (input_dir / f"{name}.json").write_text(json.dumps({"paragraphs": paragraphs}, ensure_ascii=False),
+                                                        encoding="utf-8")
         print(f"{config}: {len(df)} documents, {n_entities} entities, {mismatches} span/token mismatches "
               f"-> {gold_dir / f'{config}.jsonl'}, {input_dir}")
+        words = [n for doc in sizes for n in doc]
+        single = sum(len(doc) == 1 for doc in sizes)
+        print(f"  {args.split}: {len(words)} paragraphs, {np.median([len(d) for d in sizes]):.0f} per document "
+              f"({single} documents in one paragraph), {np.median(words):.0f} words per paragraph (max {max(words)})")
+        if config != "plos_sentences" and args.split == "paragraphs" and single > len(sizes) / 2:
+            print("  warning: most texts have no line breaks, so they are not split into paragraphs")
 
 
 # ---------------------------------------------------------------- softcite
@@ -232,7 +265,7 @@ def shift_mention(mention, offset, text):
 
 
 def softcite_document(doc, config, args):
-    paragraphs = split_paragraphs(doc["text"]) if config == "pubmed_fulltext" else [doc["text"]]
+    paragraphs = paragraphs_of(doc["text"], config, args.split)
     mentions, cursor, response = [], 0, {}
     for paragraph in paragraphs:
         start = doc["text"].find(paragraph, cursor)
@@ -248,16 +281,18 @@ def softcite_document(doc, config, args):
 def softcite(args):
     """Runs Softcite on the documents of a config; the documents already done are skipped."""
     docs = [json.loads(line) for line in (args.data / "gold" / f"{args.config}.jsonl").open(encoding="utf-8")]
-    out_dir = args.output_dir or args.data / "softcite" / args.config
+    out_dir = args.output_dir or args.data / "softcite" / run_name(args.config, args.split)
     out_dir.mkdir(parents=True, exist_ok=True)
     todo = [d for d in docs if not (out_dir / f"{d['file']}.software.json").exists()]
-    print(f"{args.config}: {len(todo)} documents to process ({len(docs) - len(todo)} already done)")
+    print(f"{run_name(args.config, args.split)}: {len(todo)} documents to process "
+          f"({len(docs) - len(todo)} already done) -> {out_dir}")
     if not todo:
         return
-    # One short request first, so that a service that does not answer is seen at once
+    # One short request first, so that a service that does not answer is seen before the documents;
+    # a busy or sleeping Space (503) gets the usual retries
     print(f"checking {args.endpoint} ...", flush=True)
     try:
-        softcite_request(args.endpoint, "Analyses were done with SPSS.", args.timeout, 0, 0)
+        softcite_request(args.endpoint, "Analyses were done with SPSS.", args.timeout, args.retries, args.retry_wait)
     except Exception as error:  # noqa: BLE001
         raise SystemExit(f"Softcite does not answer at {args.endpoint}: {error}")
     failed = 0
@@ -429,6 +464,22 @@ def prf(tp, fp, fn):
     return {"precision": round(p, 4), "recall": round(r, 4), "f1": round(f, 4), "tp": tp, "fp": fp, "fn": fn}
 
 
+def bootstrap(per_doc, samples, seed):
+    """95% intervals of P, R and F1: the documents are drawn again with replacement, `samples` times.
+    A sample where a score is undefined (e.g. no version at all) is left out of its interval."""
+    counts = np.array(per_doc, dtype=float)  # one row per document: tp, fp, fn
+    rng = np.random.default_rng(seed)
+    tp, fp, fn = counts[rng.integers(0, len(counts), (samples, len(counts)))].sum(axis=1).T
+    with np.errstate(divide="ignore", invalid="ignore"):
+        scores = {"precision": tp / (tp + fp), "recall": tp / (tp + fn), "f1": 2 * tp / (2 * tp + fp + fn)}
+    intervals = {}
+    for name, values in scores.items():
+        values = values[np.isfinite(values)]
+        intervals[name] = ([round(float(np.percentile(values, 2.5)), 4), round(float(np.percentile(values, 97.5)), 4)]
+                           if len(values) else None)
+    return intervals
+
+
 def output_file(predictions_dir, name, tool):
     for pattern in OUTPUT_NAMES[tool]:
         if (predictions_dir / pattern.format(name)).exists():
@@ -460,16 +511,19 @@ def gold_software(doc):
 def evaluate(args):
     ignored_types = {"OPERATINGSYSTEM"} if args.exclude_os else set()
     gold_path = args.data / "gold" / f"{args.config}.jsonl"
-    predictions_dir = args.predictions_dir or args.data / args.tool / args.config
+    run = run_name(args.config, args.split)
+    predictions_dir = args.predictions_dir or args.data / args.tool / run
     docs = [json.loads(line) for line in gold_path.open(encoding="utf-8")]
 
     counts = defaultdict(Counter)
+    per_doc = defaultdict(list)  # level -> (tp, fp, fn) of each document, for the bootstrap
     type_recall = defaultdict(Counter)
     mention_type_recall = defaultdict(Counter)
     missing_files, not_in_text, n_names = [], 0, 0
     errors = []
 
     for doc in docs:
+        doc_counts = defaultdict(Counter)
         path = output_file(predictions_dir, doc["file"], args.tool)
         if path is None:
             missing_files.append(doc["id"])
@@ -493,7 +547,7 @@ def evaluate(args):
             matched_i, matched_j = {i for _, i, _ in matched}, {j for _, _, j in matched}
             extra = {i for score, i, j in pairs if score >= min_score and j in matched_j and i not in matched_i}
             extra |= ignored - matched_i
-            counts[level].update(tp=len(matched), fp=len(predictions) - len(matched) - len(extra),
+            doc_counts[level].update(tp=len(matched), fp=len(predictions) - len(matched) - len(extra),
                                  fn=len(gold) - len(matched))
             if level == "doc_relaxed":
                 relaxed, relaxed_extra = matched, extra
@@ -507,7 +561,7 @@ def evaluate(args):
             name, version = predictions[i]
             predicted = predicted_versions(name, version, gold[j]["aliases"])
             expected = {normalise_version(v) for v in gold[j]["version"]} - {""}
-            counts["version"].update(tp=len(predicted & expected), fp=len(predicted - expected),
+            doc_counts["version"].update(tp=len(predicted & expected), fp=len(predicted - expected),
                                      fn=len(expected - predicted))
             if predicted != expected:
                 version_errors.append({"software": gold[j]["name"], "predicted_name": name,
@@ -531,12 +585,17 @@ def evaluate(args):
                           for i, s in enumerate(spans) for j, g in enumerate(gold_spans)
                           if s[0] < g["end"] and g["start"] < s[1]])
         for level, matched in (("mention_strict", strict), ("mention_overlap", overlap)):
-            counts[level].update(tp=len(matched), fp=len(spans) - len(matched) + len(missing),
+            doc_counts[level].update(tp=len(matched), fp=len(spans) - len(matched) + len(missing),
                                  fn=len(gold_spans) - len(matched))
         for j in {j for _, _, j in overlap}:
             mention_type_recall[gold_spans[j]["label"]]["tp"] += 1
         for g in gold_spans:
             mention_type_recall[g["label"]]["total"] += 1
+
+        for level in LEVELS:
+            c = doc_counts[level]
+            counts[level].update(c)
+            per_doc[level].append((c["tp"], c["fp"], c["fn"]))
 
         # Errors, at document level (relaxed)
         fp = [predictions[i][0] for i in range(len(predictions))
@@ -546,13 +605,19 @@ def evaluate(args):
             errors.append({"id": doc["id"], "file": doc["file"], "false_positives": fp, "false_negatives": fn,
                            "not_in_text": missing, "version_errors": version_errors})
 
-    metrics = {level: prf(c["tp"], c["fp"], c["fn"]) for level, c in counts.items()}
+    metrics = {level: prf(counts[level]["tp"], counts[level]["fp"], counts[level]["fn"]) for level in LEVELS}
+    if args.bootstrap and docs:
+        for level in LEVELS:
+            metrics[level]["ci95"] = bootstrap(per_doc[level], args.bootstrap, args.seed)
     result = {
         "config": args.config,
+        "split": args.split,
+        "run": run,
         "tool": args.tool,
         "predictions_dir": str(predictions_dir),
         "explicit_only": args.explicit_only,
         "exclude_os": args.exclude_os,
+        "bootstrap": {"samples": args.bootstrap, "seed": args.seed} if args.bootstrap else None,
         "documents": len(docs),
         "missing_outputs": len(missing_files),
         "predicted_names": n_names,
@@ -567,12 +632,15 @@ def evaluate(args):
         "errors": errors,
     }
 
-    print(f"{args.tool} on {args.config}: {len(docs)} documents, {len(missing_files)} without output, "
+    print(f"{args.tool} on {run}: {len(docs)} documents, {len(missing_files)} without output, "
           f"{n_names} predicted names ({not_in_text} not found in the text)")
-    print(f"{'level':<16} {'P':>7} {'R':>7} {'F1':>7} {'TP':>6} {'FP':>6} {'FN':>6}")
-    for level in ("doc_exact", "doc_relaxed", "mention_strict", "mention_overlap", "version"):
-        m = metrics.get(level, prf(0, 0, 0))
-        print(f"{level:<16} {m['precision']:>7.3f} {m['recall']:>7.3f} {m['f1']:>7.3f} "
+    if args.bootstrap:
+        print(f"95% intervals of F1: {args.bootstrap} bootstrap samples of the documents")
+    print(f"{'level':<16} {'P':>7} {'R':>7} {'F1':>7} {'F1 95%':>13} {'TP':>6} {'FP':>6} {'FN':>6}")
+    for level in LEVELS:
+        m = metrics[level]
+        ci = "{:.3f}-{:.3f}".format(*m["ci95"]["f1"]) if m.get("ci95", {}).get("f1") else ""
+        print(f"{level:<16} {m['precision']:>7.3f} {m['recall']:>7.3f} {m['f1']:>7.3f} {ci:>13} "
               f"{m['tp']:>6} {m['fp']:>6} {m['fn']:>6}")
     print("recall by type (document relaxed / mention overlap):")
     for t in sorted(set(type_recall) | set(mention_type_recall)):
@@ -580,7 +648,7 @@ def evaluate(args):
         men_r = result["recall_by_type"]["mention_overlap"].get(t, float("nan"))
         print(f"  {t:<24} {doc_r:.3f} / {men_r:.3f}")
 
-    out = args.out or args.data / "results" / args.tool / f"{args.config}.json"
+    out = args.out or args.data / "results" / args.tool / f"{run}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"-> {out}")
@@ -595,13 +663,17 @@ def main():
     p.add_argument("--out", type=Path, default=DEFAULT_DIR, help=f"output directory (default: {DEFAULT_DIR})")
     p.add_argument("--source", type=Path,
                    help="local copy of the dataset (<config>/test-00000-of-00001.parquet); default: download it")
+    p.add_argument("--split", choices=SPLITS, default="paragraphs",
+                   help="paragraphs (default): each line of a methods section or full paper, as on PEPR; "
+                        "blocks: a methods section in one block, a full paper at blank lines (the first runs)")
     p.set_defaults(func=prepare)
 
     s = sub.add_parser("softcite", help="run Softcite on the documents of one config")
     s.add_argument("--config", required=True, choices=CONFIGS)
     s.add_argument("--data", type=Path, default=DEFAULT_DIR, help=f"directory of prepare (default: {DEFAULT_DIR})")
     s.add_argument("--endpoint", default=SOFTCITE_URL, help=f"Softcite service (default: {SOFTCITE_URL})")
-    s.add_argument("--output-dir", type=Path, help="Softcite outputs (default: <data>/softcite/<config>)")
+    s.add_argument("--split", choices=SPLITS, default="paragraphs", help="as for prepare")
+    s.add_argument("--output-dir", type=Path, help="Softcite outputs (default: <data>/softcite/<run>)")
     s.add_argument("--threads", type=int, default=2, help="parallel requests (default: 2, the Space is shared)")
     s.add_argument("--timeout", type=int, default=120, help="seconds per request (default: 120)")
     s.add_argument("--retries", type=int, default=5, help="retries on 5xx errors and timeouts")
@@ -611,14 +683,18 @@ def main():
     e = sub.add_parser("evaluate", help="score the outputs of a tool on one config")
     e.add_argument("--config", required=True, choices=CONFIGS)
     e.add_argument("--tool", choices=TOOLS, default="baguette", help="the tool to score (default: baguette)")
+    e.add_argument("--split", choices=SPLITS, default="paragraphs", help="as for prepare: which run to score")
     e.add_argument("--data", type=Path, default=DEFAULT_DIR, help=f"directory of prepare (default: {DEFAULT_DIR})")
     e.add_argument("--predictions-dir", "--baguette-dir", type=Path,
-                   help="outputs of the tool (default: <data>/<tool>/<config>)")
+                   help="outputs of the tool (default: <data>/<tool>/<run>)")
     e.add_argument("--explicit-only", action="store_true",
                    help="leave out the implicit mentions (Baguette: implicit, Softcite: software-type implicit)")
     e.add_argument("--exclude-os", action="store_true",
                    help="leave the operating systems out of the gold, and do not count the names that match one")
-    e.add_argument("--out", type=Path, help="JSON results (default: <data>/results/<tool>/<config>.json)")
+    e.add_argument("--bootstrap", type=int, default=1000,
+                   help="bootstrap samples for the 95%% intervals (default: 1000; 0: no intervals)")
+    e.add_argument("--seed", type=int, default=0, help="seed of the bootstrap (default: 0)")
+    e.add_argument("--out", type=Path, help="JSON results (default: <data>/results/<tool>/<run>.json)")
     e.set_defaults(func=evaluate)
 
     args = parser.parse_args()
