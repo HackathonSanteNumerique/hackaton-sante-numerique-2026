@@ -5,7 +5,8 @@ Scores of the software-mention tools against [SoMeSci](../datasets/README.md#som
 - **Main score:** document level with relaxed matching (`doc_relaxed`): the software of a document against the unique names given by the tool.
 - **All the numbers:** `data/somesci/results/<tool>/<run>.json`, with the errors of each document.
 - **Run:** all software types, implicit mentions included (no `--explicit-only`, no `--exclude-os`), unless written otherwise.
-- **Inputs of the results below:** the first runs (`--split blocks`): a methods section sent in one block, a full paper split at blank lines, which in SoMeSci are sections. Their 95% intervals were added on 2026-10-15, by scoring the same outputs again (the scores themselves did not change). They will be replaced by runs on paragraphs (`--split paragraphs`, now the default), with 95% intervals; see [Is the comparison fair?](#is-the-comparison-fair). `plos_sentences` is the same with both. **bio2flow** was run on paragraphs only, with 95% intervals; for bio2flow the split matters little, because its client joins the paragraphs of a document into one text anyway.
+- **Inputs:** Baguette and Softcite with `--split blocks` (a methods section in one block, a full paper split at blank lines, which in SoMeSci are sections), bio2flow with `--split paragraphs` (one paragraph per line of the text; its client joins them into one document anyway). Sentences are the same input for all three.
+- **Intervals:** 95% bootstrap intervals over the documents (1,000 samples).
 
 ## How the evaluation works
 
@@ -120,8 +121,6 @@ evaluate --config <config> --tool <tool> --exclude-types PROGRAMMINGENVIRONMENT 
 
 Document level, relaxed matching, applications and plugins only:
 
-Computed on 2026-10-15, after the fix of `--exclude-types`: the matching is the same as with all types, and the excluded software are left out of the counts afterwards (before the fix, a name of an excluded software such as `R` could match another one, `R package nlme`). The check holds: the recall of applications and of plugins is the same here as on all types, for every tool and config. bio2flow's numbers did not change with the fix.
-
 | Config | Tool | P | R | F1 (95% interval) |
 |---|---|---|---|---|
 | `plos_sentences` | Baguette | 0.906 | 0.791 | **0.844** (0.824–0.866) |
@@ -134,7 +133,7 @@ Computed on 2026-10-15, after the fix of `--exclude-types`: the matching is the 
 | | Softcite | 0.829 | 0.855 | **0.842** (0.797–0.893) |
 | | bio2flow | 0.364 | 0.667 | **0.471** (0.385–0.550) |
 
-Baguette and Softcite are on the first runs (`--split blocks`), bio2flow on paragraphs (`plos_methods-paragraphs`, `pubmed_fulltext-paragraphs`): on sentences the inputs are the same.
+Baguette and Softcite on blocks, bio2flow on paragraphs (see the inputs at the top); on sentences the inputs are the same.
 
 - **The ranking does not change: Softcite, then Baguette, then bio2flow.** Softcite is clearly ahead everywhere: its interval overlaps neither of the others in any config.
 - **The exclusion changes little for Baguette and Softcite** (F1 within 0.03 of their all-types F1: Baguette 0.822 → 0.844, 0.542 → 0.528, 0.531 → 0.537; Softcite 0.904 → 0.925, 0.809 → 0.805, 0.821 → 0.842), and little for bio2flow (+0.02 to +0.03). So bio2flow's low scores are not an effect of what counts as software.
@@ -151,7 +150,7 @@ Recall by type, document level (relaxed):
 | `PLUGIN` | 0.674 | **0.698** | 0.349 | 0.450 | **0.775** | 0.675 | 0.472 | 0.750 | **0.944** |
 | `OPERATINGSYSTEM` | 0.037 | 0.018 | 0.000 | 0.032 | 0.097 | 0.000 | 0.077 | 0.000 | 0.000 |
 
-bio2flow's columns are on paragraphs, the others on the first runs (blocks).
+bio2flow's columns are on paragraphs, the others on blocks.
 
 **Differences between the tools:**
 
@@ -167,7 +166,7 @@ bio2flow's columns are on paragraphs, the others on the first runs (blocks).
 
 ### Is the comparison fair?
 
-Checked on 2026-10-14, with the public sources and the outputs of both tools on the PEPR corpus (🤗 [`pepr-hal-data`](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data), `baguette/` and `softcite/`).
+Checked with the public sources and the outputs of both tools on the PEPR corpus (🤗 [`pepr-hal-data`](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data), `baguette/` and `softcite/`).
 
 | Check | Result | Fair? |
 |---|---|---|
@@ -176,15 +175,15 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 | Same tool versions as on PEPR | Softcite: the same service, `software-mentions` 0.9.0-SNAPSHOT, revision `54efbc6`, for PEPR and SoMeSci. Baguette: the same endpoint, which cuts long inputs on both | ✓ |
 | SoMeSci articles in the training data of Softcite | None of the 1,257 SoMeSci articles (PMC ids) is in the Softcite corpus of the [software-mentions](https://github.com/softcite/software-mentions) repo (2,561 PMC articles in training, about 530 in the holdout). The repo uses SoMeSci only to build training data for the used / created / shared classifier, which is not scored here. Not checked: whether the weights on the Space were trained on more data than the repo | ✓ as far as the repo shows |
 | SoMeSci articles in the training data of Baguette | Unknown: its 531k training paragraphs are not public. Its labels come from an LLM teacher, not from SoMeSci, so at most the texts could overlap, not the annotations | ? |
-| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service **Fixed in the script:** `--split paragraphs` (now the default) sends both tools the paragraphs of SoMeSci, one per line of the text. To be run | ~ until the runs on paragraphs |
+| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service `--split paragraphs` sends the paragraphs of SoMeSci instead, one per line of the text; Baguette and Softcite have not been run on it | ~ |
 | Effect of cutting on Baguette | Measured on PEPR, paragraph by paragraph, against the Softcite mentions of the same paragraph: Baguette gives 0.48 names per Softcite name on paragraphs it did not cut (3,307 paragraphs), 0.42 on paragraphs it cut (1,131). Cutting costs little | ✓ probably |
 | Failed requests counted as misses | On PEPR, 7 of 22,410 Baguette paragraphs failed. On SoMeSci, not checked | ✓ probably |
 | What counts as software | Not neutral. SoMeSci and Softcite are human annotation schemes for the same task, with similar choices on names and versions; Softcite learned them from human annotations, Baguette from an LLM teacher with its own definition (software apart from datasets, roles…). SoMeSci measures agreement with such a scheme, which favours a model trained on one | ✗ favours Softcite |
-| Uncertainty | 95% bootstrap intervals over the documents (1,000 samples), now in the tables. On all types, the intervals of Baguette and Softcite do not overlap in any config (e.g. 0.462–0.598 against 0.784–0.866 on full papers, the fewest documents): the gap between the two tools is clear | ✓ |
+| Uncertainty | 95% bootstrap intervals over the documents (1,000 samples), in the tables. On all types, the intervals of Baguette and Softcite do not overlap in any config (e.g. 0.462–0.598 against 0.784–0.866 on full papers, the fewest documents): the gap between the two tools is clear | ✓ |
 
 **On PEPR, without gold:** on the 263 papers with both outputs, Baguette gives 7.9 unique names per paper and Softcite 8.8. Only about half are shared (51% of Baguette's names, 46% of Softcite's, with the relaxed matching). Per paragraph, Baguette gives about half as many names as Softcite: it names a software in fewer of the paragraphs where it appears. So the two tools disagree a lot on real papers too, and SoMeSci only says which one is closer to its annotators.
 
-**bio2flow** (checked on 2026-10-15):
+**bio2flow:**
 
 | Check | Result | Fair? |
 |---|---|---|
@@ -197,11 +196,9 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 
 **What would make it fairer:**
 
-1. ✓ in the script, to run: send the methods sections and full papers paragraph by paragraph (the lines of the SoMeSci texts) to both tools, as on PEPR. `prepare`, then Baguette and Softcite on `plos_methods-paragraphs` and `pubmed_fulltext-paragraphs`, then `evaluate` (see [README.md](README.md#1-prepare)).
+1. Run Baguette and Softcite on paragraphs (`--split paragraphs`), as on PEPR and as bio2flow, on `plos_methods` and `pubmed_fulltext` (see [README.md](README.md#1-prepare)).
 2. Read the `errors`: whether Baguette's misses are software it does not see, or names SoMeSci counts as software and Baguette does not (or puts in `datasets`).
-3. ✓ done: 95% bootstrap intervals in `evaluate`, by default, and in the tables for the first runs of Baguette and Softcite (`--split blocks`).
-4. Compare the tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of two tools overlap.
-5. ✓ in the script: compare the three tools on the software they all count, with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`.
+3. Compare the tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of two tools overlap.
 
 ## Baguette
 
@@ -423,7 +420,7 @@ Every document has an output (0 failed requests).
 
 ### Summary
 
-Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools. Its "apps & plugins" figures were checked after the fix of `--exclude-types` (2026-10-15): they did not change.
+Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools.
 
 | Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types (95% interval) | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
 |---|---|---|---|---|---|---|

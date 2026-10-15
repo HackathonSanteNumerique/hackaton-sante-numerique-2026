@@ -31,7 +31,7 @@ The `default` config is a copy of `pubmed_fulltext`.
 uv run python scripts/eval_somesci.py prepare                           # downloads the three configs
 uv run python scripts/eval_somesci.py prepare --source data/somesci/    # a local copy of the dataset
 uv run python scripts/eval_somesci.py prepare --config plos_sentences   # only some configs
-uv run python scripts/eval_somesci.py prepare --split blocks            # the inputs of the first runs
+uv run python scripts/eval_somesci.py prepare --split blocks            # methods sections in one block
 ```
 
 - **`--source`:** a folder with the layout of the 🤗 repo (`<config>/test-00000-of-00001.parquet`). A parquet file with the config in its name also works.
@@ -41,7 +41,7 @@ uv run python scripts/eval_somesci.py prepare --split blocks            # the in
 | `--split` | Methods section | Full paper | Folder (`<run>`) |
 |---|---|---|---|
 | `paragraphs` (default) | one paragraph per line of the text | one paragraph per line | `<config>-paragraphs` |
-| `blocks` (the first runs) | one block | the blocks between blank lines, which in SoMeSci are sections | `<config>` |
+| `blocks` | one block | the blocks between blank lines, which in SoMeSci are sections | `<config>` |
 
 `paragraphs` is the fair choice: SoMeSci writes one paragraph per line, so both tools get paragraphs, as they do on the PEPR corpus with GROBID. The two splits have their own folders, so that outputs of different inputs are never mixed (the Baguette client skips the documents already in its CSV).
 
@@ -81,7 +81,7 @@ The `softcite` command sends the text of each document to the text service of So
 
 ```bash
 for c in plos_sentences plos_methods pubmed_fulltext; do
-  uv run python scripts/eval_somesci.py softcite --config $c      # --split blocks for the first runs
+  uv run python scripts/eval_somesci.py softcite --config $c      # or --split blocks
 done
 ```
 
@@ -129,7 +129,7 @@ uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool so
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --explicit-only
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --exclude-os
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool bio2flow --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
-uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks   # the first runs
+uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks   # the outputs on blocks
 ```
 
 | Option | Default | |
