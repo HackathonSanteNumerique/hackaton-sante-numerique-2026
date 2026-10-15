@@ -5,7 +5,7 @@ Scores of the software-mention tools against [SoMeSci](../datasets/README.md#som
 - **Main score:** document level with relaxed matching (`doc_relaxed`): the software of a document against the unique names given by the tool.
 - **All the numbers:** `data/somesci/results/<tool>/<run>.json`, with the errors of each document.
 - **Run:** all software types, implicit mentions included (no `--explicit-only`, no `--exclude-os`), unless written otherwise.
-- **Inputs of the results below:** the first runs (`--split blocks`): a methods section sent in one block, a full paper split at blank lines, which in SoMeSci are sections. They have no confidence intervals. They will be replaced by runs on paragraphs (`--split paragraphs`, now the default), with 95% intervals; see [Is the comparison fair?](#is-the-comparison-fair). `plos_sentences` is the same with both.
+- **Inputs of the results below:** the first runs (`--split blocks`): a methods section sent in one block, a full paper split at blank lines, which in SoMeSci are sections. They have no confidence intervals. They will be replaced by runs on paragraphs (`--split paragraphs`, now the default), with 95% intervals; see [Is the comparison fair?](#is-the-comparison-fair). `plos_sentences` is the same with both. **bio2flow** was run on paragraphs only, with 95% intervals; for bio2flow the split matters little, because its client joins the paragraphs of a document into one text anyway.
 
 ## How the evaluation works
 
@@ -14,7 +14,7 @@ The full description is in [README.md](README.md); this is the short version.
 ### The steps
 
 1. **`prepare`** reads SoMeSci and writes, for each document, its text and its gold annotations (`gold/<config>.jsonl`), and the Baguette input.
-2. **The tools run on the same texts.** Baguette goes through its endpoint, Softcite through its text service (`softcite` command), and bio2flow runs locally with `copalink_client.py`. Each writes one output file per document.
+2. **The tools run on the same texts.** Baguette goes through its endpoint, Softcite through its text service (`softcite` command), and bio2flow through its Modal endpoint with `copalink_client.py --endpoint` (or locally, with the same outputs). Each writes one output file per document.
 3. **`evaluate --tool <tool>`** reads the gold and the outputs of the tool, matches them, and counts true positives (TP), false positives (FP) and false negatives (FN). The scores are micro-averaged over all the documents of a config: P = TP / (TP + FP), R = TP / (TP + FN), F1 their harmonic mean.
 
 ### The fields used
@@ -57,7 +57,7 @@ Not used: `normalizedForm`, `publisher`, `url`, `language`, `context`, the `used
 | `text` | the predicted software |
 | `begin`, `end` | the predicted span, in the paragraph; moved back to the text of the document |
 
-Not used: `confidence` (all entities count), `attributes` (empty). bio2flow gives no versions, so its version scores are 0 by construction.
+Not used: `confidence` (all entities count), `attributes` (empty). bio2flow gives no versions: its only predicted versions are numbers inside a name (`SPSS 22`), so its version scores are near 0 by construction.
 
 SoMeSci on Hugging Face has no usage / creation types, so the roles of Baguette and the attributes of Softcite cannot be scored.
 
@@ -107,7 +107,7 @@ Document level, relaxed matching:
 | `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** | 0.519 | 0.574 |
 | | Softcite | 0.836 | 0.807 | **0.821** | 0.793 | 0.935 |
 
-bio2flow is not run yet. It cannot be compared on this table: its training corpus never counts programming languages or operating systems as tools (see [bio2flow](#bio2flow)), so it is compared with the others on **applications and plugins only**, the software that all three tools count:
+bio2flow is not on this table: its training corpus never counts programming languages or operating systems as tools (see [bio2flow](#bio2flow)), so it is compared with the others on **applications and plugins only**, the software that all three tools count:
 
 ```bash
 evaluate --config <config> --tool <tool> --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
@@ -119,22 +119,30 @@ Document level, relaxed matching, applications and plugins only:
 |---|---|---|---|---|
 | `plos_sentences` | Baguette | – | – | – |
 | | Softcite | – | – | – |
-| | bio2flow | – | – | – |
+| | bio2flow | 0.714 | 0.111 | **0.191** (0.153–0.227) |
 | `plos_methods` | Baguette | – | – | – |
 | | Softcite | – | – | – |
-| | bio2flow | – | – | – |
+| | bio2flow | 0.490 | 0.513 | **0.501** (0.456–0.542) |
 | `pubmed_fulltext` | Baguette | – | – | – |
 | | Softcite | – | – | – |
-| | bio2flow | – | – | – |
+| | bio2flow | 0.364 | 0.667 | **0.471** (0.385–0.550) |
+
+Baguette and Softcite on applications and plugins only: to run, with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, on the same runs. bio2flow's rows are on paragraphs (`plos_methods-paragraphs`, `pubmed_fulltext-paragraphs`).
+
+- **bio2flow is below both tools, even on applications and plugins.** Its F1 there (0.19, 0.50, 0.47) is below the F1 of Baguette and Softcite on *all* types (0.82 and 0.90 on sentences, 0.53–0.81 on longer texts). Far below Softcite everywhere; on longer texts, only 0.04–0.06 below Baguette, and above Baguette in recall of applications (0.49 against 0.43 on methods sections, 0.62 against 0.48 on full papers). Excluding programming environments and operating systems raises its F1 by only 0.02–0.03.
+- **Sentences:** bio2flow names a software in few of them (121 names for 916 gold software), so recall is 0.11. Its precision there is the best of its three configs (0.71).
+- **Longer texts:** recall rises (0.51 on methods sections, 0.67 on full papers), but precision falls (0.49, 0.36). On full papers it gives 477 names for 285 gold software.
 
 Recall by type, document level (relaxed):
 
-| Type | Baguette sentences | Softcite sentences | Baguette methods | Softcite methods | Baguette full papers | Softcite full papers |
-|---|---|---|---|---|---|---|
-| `APPLICATION` | 0.797 | **0.939** | 0.429 | **0.860** | 0.475 | **0.872** |
-| `PROGRAMMINGENVIRONMENT` | 0.785 | **0.989** | 0.598 | **0.920** | 0.471 | **0.706** |
-| `PLUGIN` | 0.674 | **0.698** | 0.450 | **0.775** | 0.472 | **0.750** |
-| `OPERATINGSYSTEM` | 0.037 | 0.018 | 0.032 | 0.097 | 0.077 | 0.000 |
+| Type | Baguette sentences | Softcite sentences | bio2flow sentences | Baguette methods | Softcite methods | bio2flow methods | Baguette full papers | Softcite full papers | bio2flow full papers |
+|---|---|---|---|---|---|---|---|---|---|
+| `APPLICATION` | 0.797 | **0.939** | 0.096 | 0.429 | **0.860** | 0.485 | 0.475 | **0.872** | 0.621 |
+| `PROGRAMMINGENVIRONMENT` | 0.785 | **0.989** | 0.011 | 0.598 | **0.920** | 0.027 | 0.471 | **0.706** | 0.118 |
+| `PLUGIN` | 0.674 | **0.698** | 0.349 | 0.450 | **0.775** | 0.675 | 0.472 | 0.750 | **0.944** |
+| `OPERATINGSYSTEM` | 0.037 | 0.018 | 0.000 | 0.032 | 0.097 | 0.000 | 0.077 | 0.000 | 0.000 |
+
+bio2flow's columns are on paragraphs, the others on the first runs (blocks).
 
 **Differences between the tools:**
 
@@ -175,7 +183,7 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 | Same model as on PEPR | The PEPR outputs (`bio2flow/` on 🤗) come from `csebe_scibert_bioinfo_voc_iteration4_seed100.pt`, the default of `copalink_client.py`. Use the same file | ✓ if the same file is used |
 | Same inputs, as in normal use | The same paragraphs as the other tools; the client joins them into one document, as it does with the GROBID paragraphs on PEPR | ✓ |
 | What counts as software | **Not comparable on all types.** CPL-Article annotates bioinformatics tools only: R (written 42 times in its articles), Python (24), Linux (11), Docker (66), Nextflow (134) are never annotated as `Tool`. SoMeSci counts R, Python and Linux as software. The tools are compared on applications and plugins only (`--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`). Even there, CPL-Article's tools are bioinformatics ones; general applications such as SPSS or Excel are not in it either (Excel: written twice, not annotated) | ~ on applications and plugins |
-| Versions | The model tags no versions | not scored |
+| Versions | The model tags no versions; only numbers inside a predicted name count | ✗ near 0 by construction; leave out |
 | Domain | CPL-Article is bioinformatics workflows; SoMeSci is PLoS and PMC papers of all biomedical fields | ✗ favours the other tools |
 
 **What would make it fairer:**
@@ -393,7 +401,7 @@ done
 
 ## bio2flow
 
-The paper-text NER of [CoPaLink](../models/README.md#copalink) (`csebe_scibert_bioinfo_voc_iteration4_seed100.pt`), trained on CPL-Article, run locally with [`copalink_client.py`](../scripts/copalink_client.py). Not run yet; the commands are in [README.md](README.md#2c-run-bio2flow), and then:
+The paper-text NER of [CoPaLink](../models/README.md#copalink) (`csebe_scibert_bioinfo_voc_iteration4_seed100.pt`), trained on CPL-Article, through its Modal endpoint ([`scripts/bio2flow_modal.py`](../scripts/bio2flow_modal.py), L4 GPU) with [`copalink_client.py --endpoint`](../scripts/copalink_client.py), on paragraphs (`--split paragraphs`). Commands in [README.md](README.md#2c-run-bio2flow), then:
 
 ```bash
 for c in plos_sentences plos_methods pubmed_fulltext; do
@@ -402,11 +410,70 @@ for c in plos_sentences plos_methods pubmed_fulltext; do
 done
 ```
 
-What to expect, before the results:
+Every document has an output (0 failed requests).
 
-- **Programming environments and operating systems:** recall near 0, by design of its training corpus (see [Is the comparison fair?](#is-the-comparison-fair)).
-- **Versions:** none, so `version` is 0.
-- **Mention level:** exact, from its own offsets, like Softcite.
+### Summary
+
+Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools.
+
+| Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
+|---|---|---|---|---|---|---|
+| `plos_sentences` | 677 | 121 | 916 / 769 | 0.166 | **0.191** (0.153–0.227) | 0.200 |
+| `plos_methods` | 480 | 1,053 | 1,142 / 999 | 0.471 | **0.501** (0.456–0.542) | 0.480 |
+| `pubmed_fulltext` | 97 | 477 | 285 / 255 | 0.456 | **0.471** (0.385–0.550) | 0.411 |
+
+- **Recall grows with the length of the text, precision falls.** On sentences it gives few names, mostly right; on full papers, many names, mostly wrong.
+- **Sentences and methods sections come from the same PLoS papers,** yet recall is 0.11 on sentences and 0.51 on methods sections. So the drop on sentences is not the domain. A likely cause is context: the model sees the sentences around a word (`doc_context` in its configuration), and an isolated sentence gives it none. This is a hypothesis, to check in the `errors`.
+- **Plugins are its strong point** (recall 0.35, 0.68, 0.94: the best of the three tools on full papers, with few plugins there), applications are found half as often, programming environments and operating systems hardly at all, as expected.
+- **Versions:** near 0, by construction (see above).
+
+### `plos_sentences`
+
+677 sentences, 121 unique names.
+
+| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.653 | 0.086 | 0.152 | 0.650 | 0.101 | 0.175 | 0.140–0.210 |
+| `doc_relaxed` | **0.717** | **0.094** | **0.166** | **0.714** | **0.111** | **0.191** | 0.153–0.227 |
+| `mention_strict` | 0.653 | 0.085 | 0.150 | 0.650 | 0.100 | 0.173 | 0.139–0.211 |
+| `mention_overlap` | 0.750 | 0.097 | 0.172 | 0.748 | 0.115 | 0.200 | 0.162–0.236 |
+
+Counts (`doc_relaxed`): all types TP 86, FP 34, FN 830; apps & plugins TP 85, FP 34, FN 684. Recall by type (document / mention): `APPLICATION` 0.096 / 0.102, `PLUGIN` 0.349 / 0.341, `PROGRAMMINGENVIRONMENT` 0.011 / 0.010, `OPERATINGSYSTEM` 0 / 0.
+
+- **Recall 0.09–0.11:** bio2flow misses nine software in ten. It gives a name in very few sentences, although each sentence was chosen for its software.
+- **Precision 0.71:** when it gives a name, it is mostly a software, but still below the 0.92–0.93 of the other tools.
+
+### `plos_methods`
+
+480 methods sections, 1,053 unique names (2.2 per section) for 1,142 gold software.
+
+| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.451 | 0.416 | 0.433 | 0.450 | 0.472 | 0.461 | 0.413–0.504 |
+| `doc_relaxed` | **0.491** | **0.452** | **0.471** | **0.490** | **0.513** | **0.501** | 0.456–0.542 |
+| `mention_strict` | 0.419 | 0.386 | 0.402 | 0.418 | 0.442 | 0.430 | 0.371–0.482 |
+| `mention_overlap` | 0.468 | 0.432 | 0.449 | 0.467 | 0.494 | 0.480 | 0.424–0.533 |
+
+Counts (`doc_relaxed`): all types TP 516, FP 534, FN 626; apps & plugins TP 513, FP 534, FN 486. Recall by type: `APPLICATION` 0.485 / 0.474, `PLUGIN` 0.675 / 0.626, `PROGRAMMINGENVIRONMENT` 0.027 / 0.018, `OPERATINGSYSTEM` 0 / 0.
+
+- **About half right, half found:** precision and recall both near 0.5. It gives about as many names as there are gold software, but only half of them match.
+- **534 false positives:** more than its true positives. The `errors` will tell names that are not software (on PEPR it gave `Cat`, `append`, `SHA256`, `PC`) from software SoMeSci does not annotate.
+
+### `pubmed_fulltext`
+
+97 full papers, 477 unique names (4.9 per paper) for 285 gold software.
+
+| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.321 | 0.537 | 0.402 | 0.319 | 0.592 | 0.414 | 0.324–0.495 |
+| `doc_relaxed` | **0.367** | **0.604** | **0.456** | **0.364** | **0.667** | **0.471** | 0.385–0.550 |
+| `mention_strict` | 0.258 | 0.466 | 0.333 | 0.256 | 0.519 | 0.343 | 0.260–0.423 |
+| `mention_overlap` | 0.309 | 0.558 | 0.398 | 0.307 | 0.622 | 0.411 | 0.313–0.509 |
+
+Counts (`doc_relaxed`): all types TP 172, FP 297, FN 113; apps & plugins TP 170, FP 297, FN 85. Recall by type: `APPLICATION` 0.621 / 0.590, `PLUGIN` 0.944 / 0.848, `PROGRAMMINGENVIRONMENT` 0.118 / 0.074, `OPERATINGSYSTEM` 0 / 0.
+
+- **Its best recall (0.67 on apps & plugins), its worst precision (0.36):** 297 false positives for 170 true positives. A full paper has more text that is not about software (introduction, results, references), where it tags words as tools.
+- **Mention level below document level (0.41 against 0.47):** more of its spans are wrong than of its names, consistent with tags on words that are not software.
 
 ## Adding a tool
 
