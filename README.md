@@ -31,6 +31,7 @@ Three questions to guide your two days:
 | 📊 **Datasets** | [`datasets/README.md`](datasets/README.md): the PEPR corpus plus the annotated corpora (SoftCite, SoMeSci, SoFAIR, BioToFlow, CPL-Article) |
 | 🤖 **Models & tools** | [`models/README.md`](models/README.md): Softcite software-mentions, CoPaLink, Baguette via `lm-inference`, OpenAlex, HAL API |
 | 📓 **Starter notebook** | [`notebooks/softcite_analysis.ipynb`](notebooks/softcite_analysis.ipynb): Softcite-style analysis of extracted mentions |
+| 📓 **Extractor comparison** | [`notebooks/extractor_comparison.ipynb`](notebooks/extractor_comparison.ipynb): Softcite, Baguette and bio2flow on the PEPR papers — what each finds, where they agree, and an LLM judge on the disagreements |
 | 👥 **Group work** | [`groups/`](groups/README.md): one folder per group, plus a template |
 | 💻 **Environment** | [`environment/`](environment/README.md): Biosphere Jupyter VM, opencode + Albert API |
 | 🎞️ **Opening slides** | [`presentation/`](presentation/README.md) |

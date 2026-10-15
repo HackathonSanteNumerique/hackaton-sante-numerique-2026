@@ -1,0 +1,285 @@
+{"id": "c000", "category": "software", "is_software": true, "confidence": "high", "reason": "BioRender, an online figure-drawing application, used to make a figure."}
+{"id": "c001", "category": "software", "is_software": true, "confidence": "high", "reason": "pcalg R package, used to generate data with rmvDAG."}
+{"id": "c002", "category": "other", "is_software": false, "confidence": "medium", "reason": "Ope is notation for a commitment-opening predicate in a proof."}
+{"id": "c003", "category": "software", "is_software": true, "confidence": "medium", "reason": "Fragment of Synthetic Data Vault, a synthetic data generation tool."}
+{"id": "c004", "category": "software", "is_software": true, "confidence": "high", "reason": "PyTorch, used for GPU parallelization in the pipeline."}
+{"id": "c005", "category": "software", "is_software": true, "confidence": "high", "reason": "ShanoirUploader, software applying quality-control filters at import."}
+{"id": "c006", "category": "other", "is_software": false, "confidence": "high", "reason": "Karolinska Sleepiness Scale, a questionnaire instrument."}
+{"id": "c007", "category": "other", "is_software": false, "confidence": "medium", "reason": "File name of a liftOver chain file, not software."}
+{"id": "c008", "category": "software", "is_software": true, "confidence": "medium", "reason": "asynPDE, a parallel PDE solver compared as a competitor."}
+{"id": "c009", "category": "software", "is_software": true, "confidence": "high", "reason": "Scanorama, a tool used for sub-clustering neurons."}
+{"id": "c010", "category": "method", "is_software": false, "confidence": "high", "reason": "SIFU, a federated unlearning method proposed in the paper."}
+{"id": "c011", "category": "method", "is_software": false, "confidence": "medium", "reason": "SAGEConv, a graph neural network layer, an architecture component."}
+{"id": "c012", "category": "software", "is_software": true, "confidence": "high", "reason": "AME tool from the MEME suite, used for motif enrichment."}
+{"id": "c013", "category": "other", "is_software": false, "confidence": "high", "reason": "Documentation URL path for a cookbook, not software."}
+{"id": "c014", "category": "other", "is_software": false, "confidence": "high", "reason": "SEEG, a clinical recording technique, not software."}
+{"id": "c015", "category": "method", "is_software": false, "confidence": "high", "reason": "FedHEAL, a federated learning aggregation method."}
+{"id": "c016", "category": "software", "is_software": true, "confidence": "medium", "reason": "Neurosynth, an automated neuroimaging meta-analysis tool."}
+{"id": "c017", "category": "method", "is_software": false, "confidence": "high", "reason": "Heun update operator, a numerical sampling method."}
+{"id": "c018", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "Random survival forest, a model family predicting survival curves."}
+{"id": "c019", "category": "software", "is_software": true, "confidence": "high", "reason": "Apptainer, formerly Singularity, a container system."}
+{"id": "c020", "category": "other", "is_software": false, "confidence": "high", "reason": "Extraction fragment from a table, not a name."}
+{"id": "c021", "category": "other", "is_software": false, "confidence": "high", "reason": "FASTQ, a sequence file format, not software."}
+{"id": "c022", "category": "method", "is_software": false, "confidence": "high", "reason": "FedMinMax, a fairness method updating weighting coefficients."}
+{"id": "c023", "category": "software", "is_software": true, "confidence": "high", "reason": "hawkesbow package, used to simulate Poisson processes."}
+{"id": "c024", "category": "software", "is_software": true, "confidence": "medium", "reason": "Slurm, the cluster workload manager used to run experiments."}
+{"id": "c025", "category": "method", "is_software": false, "confidence": "high", "reason": "Borda Count, a rank aggregation voting method."}
+{"id": "c026", "category": "software", "is_software": true, "confidence": "medium", "reason": "AlphaFold, an AI tool listed as applied in research."}
+{"id": "c027", "category": "method", "is_software": false, "confidence": "high", "reason": "AdamW, an optimizer used for training."}
+{"id": "c028", "category": "software", "is_software": true, "confidence": "high", "reason": "ParaView, visualization software used in the pipeline."}
+{"id": "c029", "category": "software", "is_software": true, "confidence": "high", "reason": "AFNI, neuroimaging software whose pipelines are analysed."}
+{"id": "c030", "category": "method", "is_software": false, "confidence": "high", "reason": "Majorization-minimization, an optimization algorithm compared as inner solver."}
+{"id": "c031", "category": "software", "is_software": true, "confidence": "high", "reason": "Nextflow, a workflow system used as the study case."}
+{"id": "c032", "category": "other", "is_software": false, "confidence": "high", "reason": "KLC2, a gene name."}
+{"id": "c033", "category": "programming_language", "is_software": true, "confidence": "high", "reason": "R, the language in which the package is implemented."}
+{"id": "c034", "category": "dataset", "is_software": false, "confidence": "high", "reason": "TCGA, The Cancer Genome Atlas, a cancer data resource."}
+{"id": "c035", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "ConvLSTMSA, a proposed neural model compared against ECG tools."}
+{"id": "c036", "category": "dataset", "is_software": false, "confidence": "high", "reason": "BioToFlow, a corpus of 24 articles."}
+{"id": "c037", "category": "software", "is_software": true, "confidence": "low", "reason": "RPA, a tree-model tool that runs cross-classification by default."}
+{"id": "c038", "category": "method", "is_software": false, "confidence": "high", "reason": "VerifyGame, a cryptographic algorithm in a proof construction."}
+{"id": "c039", "category": "method", "is_software": false, "confidence": "high", "reason": "FedCAV, a contribution-aware federated aggregation method."}
+{"id": "c040", "category": "database", "is_software": false, "confidence": "high", "reason": "Ensembl browser, a genome database (name misspelled)."}
+{"id": "c041", "category": "software", "is_software": true, "confidence": "medium", "reason": "Dwarna, a web platform for biobank data, analysed as a tool."}
+{"id": "c042", "category": "method", "is_software": false, "confidence": "medium", "reason": "Decrypt, the CKKS decryption algorithm."}
+{"id": "c043", "category": "generic", "is_software": false, "confidence": "medium", "reason": "Generic phrase naming a repository type, not a specific name."}
+{"id": "c044", "category": "dataset", "is_software": false, "confidence": "high", "reason": "SOMVOICE, a speech corpus with inclusion criteria."}
+{"id": "c045", "category": "software", "is_software": true, "confidence": "high", "reason": "Snakemake, a workflow management system."}
+{"id": "c046", "category": "other", "is_software": false, "confidence": "medium", "reason": "Citation-based reference to a pharmacokinetic model, not software."}
+{"id": "c047", "category": "method", "is_software": false, "confidence": "high", "reason": "FastGradClip, a gradient clipping technique for private training."}
+{"id": "c048", "category": "method", "is_software": false, "confidence": "high", "reason": "Optimal transport, a transport-plan method (POT is the package)."}
+{"id": "c049", "category": "method", "is_software": false, "confidence": "high", "reason": "ToMATo, a mode-based clustering algorithm."}
+{"id": "c050", "category": "software", "is_software": true, "confidence": "high", "reason": "MRtrix3, a diffusion MRI software package."}
+{"id": "c051", "category": "other", "is_software": false, "confidence": "high", "reason": "Decisional Balance Scale, a questionnaire instrument."}
+{"id": "c052", "category": "method", "is_software": false, "confidence": "high", "reason": "DBSCAN, a density-based clustering algorithm."}
+{"id": "c053", "category": "software", "is_software": true, "confidence": "high", "reason": "Nilearn, a neuroimaging analysis library."}
+{"id": "c054", "category": "other", "is_software": false, "confidence": "high", "reason": "Fragment of a title phrase, not a name."}
+{"id": "c055", "category": "software", "is_software": true, "confidence": "high", "reason": "pandas, a Python data analysis library imported in code."}
+{"id": "c056", "category": "other", "is_software": false, "confidence": "high", "reason": "TDRD7, a gene name in a results table."}
+{"id": "c057", "category": "software", "is_software": true, "confidence": "high", "reason": "BDtoolbox, a toolkit for whole-brain dynamics modelling."}
+{"id": "c058", "category": "software", "is_software": true, "confidence": "high", "reason": "Dask, a parallel computing library used for data processing."}
+{"id": "c059", "category": "other", "is_software": false, "confidence": "high", "reason": "Fragment of a model-name list, not a name."}
+{"id": "c060", "category": "other", "is_software": false, "confidence": "high", "reason": "CeCILL, a software license, not software."}
+{"id": "c061", "category": "generic", "is_software": false, "confidence": "medium", "reason": "Generic word scripts, for code written in R."}
+{"id": "c062", "category": "method", "is_software": false, "confidence": "high", "reason": "Hypergeometric test, a statistical test."}
+{"id": "c063", "category": "dataset", "is_software": false, "confidence": "medium", "reason": "Dataset variant name with a missingness setting."}
+{"id": "c064", "category": "generic", "is_software": false, "confidence": "high", "reason": "Generic word system in a voice activity detection description."}
+{"id": "c065", "category": "method", "is_software": false, "confidence": "high", "reason": "RLR, one of the supervised benchmark methods compared."}
+{"id": "c066", "category": "software", "is_software": true, "confidence": "medium", "reason": "mpjlcmm, a function of the R package LCMM implementing JLCMs."}
+{"id": "c067", "category": "other", "is_software": false, "confidence": "high", "reason": "Single letter g from a free energy formula, extraction fragment."}
+{"id": "c068", "category": "software", "is_software": true, "confidence": "high", "reason": "mrgsolve, an R package implementing a pharmacokinetic model."}
+{"id": "c069", "category": "other", "is_software": false, "confidence": "medium", "reason": "Keyword of a formal constraint language, not software."}
+{"id": "c070", "category": "software", "is_software": true, "confidence": "high", "reason": "seaborn, imported as sns for plotting."}
+{"id": "c071", "category": "other", "is_software": false, "confidence": "low", "reason": "Module of a proposed framework, not a named standalone tool."}
+{"id": "c072", "category": "software", "is_software": true, "confidence": "high", "reason": "cuDNN, NVIDIA deep learning library, with version given."}
+{"id": "c073", "category": "other", "is_software": false, "confidence": "medium", "reason": "Fragment of SHACL, a constraint specification language, not a programming language."}
+{"id": "c074", "category": "method", "is_software": false, "confidence": "high", "reason": "CCA, canonical correlation analysis, a statistical method."}
+{"id": "c075", "category": "software", "is_software": true, "confidence": "medium", "reason": "ClinConNet, a proposed platform connecting researchers and participants."}
+{"id": "c076", "category": "software", "is_software": true, "confidence": "high", "reason": "Nextflow, a workflow system visualised by MetroFlow."}
+{"id": "c077", "category": "method", "is_software": false, "confidence": "medium", "reason": "moCluster, a multi-omics integration method described in related work."}
+{"id": "c078", "category": "software", "is_software": true, "confidence": "high", "reason": "Simuscale, a multiscale agent-based modelling framework."}
+{"id": "c079", "category": "method", "is_software": false, "confidence": "high", "reason": "ReLU, an activation function."}
+{"id": "c080", "category": "other", "is_software": false, "confidence": "medium", "reason": "Name in a GitLab URL, a repository group, not software."}
+{"id": "c081", "category": "other", "is_software": false, "confidence": "high", "reason": "ADAP2, a gene name in a results table."}
+{"id": "c082", "category": "generic", "is_software": false, "confidence": "high", "reason": "Generic section phrase, not a name."}
+{"id": "c083", "category": "software", "is_software": true, "confidence": "high", "reason": "scikit-image, an image processing library."}
+{"id": "c084", "category": "software", "is_software": true, "confidence": "high", "reason": "surv_cutpoint, a function of the survminer R package."}
+{"id": "c085", "category": "software", "is_software": true, "confidence": "high", "reason": "AME, the motif enrichment program of the MEME suite."}
+{"id": "c086", "category": "method", "is_software": false, "confidence": "high", "reason": "Dormand-Prince integration method, used via torchdiffeq."}
+{"id": "c087", "category": "other", "is_software": false, "confidence": "medium", "reason": "Workflow Run Crate, an RO-Crate metadata profile, not software."}
+{"id": "c088", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "VAEs, variational autoencoder model architectures."}
+{"id": "c089", "category": "software", "is_software": true, "confidence": "high", "reason": "EvaGeM, software developed by the company and hosted on GitHub."}
+{"id": "c090", "category": "software", "is_software": true, "confidence": "high", "reason": "LIANA, an R package for cell-cell interaction analysis."}
+{"id": "c091", "category": "generic", "is_software": false, "confidence": "high", "reason": "Generic word API in a description, not a name."}
+{"id": "c092", "category": "software", "is_software": true, "confidence": "high", "reason": "QuPath, image analysis software used for quantification."}
+{"id": "c093", "category": "method", "is_software": false, "confidence": "medium", "reason": "ReduceLROnPlateau, a learning rate scheduling technique."}
+{"id": "c094", "category": "software", "is_software": true, "confidence": "high", "reason": "SeSAMe, an R package used to process array intensities."}
+{"id": "c095", "category": "other", "is_software": false, "confidence": "medium", "reason": "Algorithm label in a sigma protocol description, notation."}
+{"id": "c096", "category": "generic", "is_software": false, "confidence": "high", "reason": "Generic word interface describing a Shiny front-end."}
+{"id": "c097", "category": "software", "is_software": true, "confidence": "high", "reason": "NumPy, a Python numerical computing library, listed in the scientific Python stack."}
+{"id": "c098", "category": "software", "is_software": true, "confidence": "high", "reason": "Andor Fusion, an acquisition software used to compute z-steps."}
+{"id": "c099", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "GPT-4 (Generative Pretrained Transformer 4) tested as a large language model."}
+{"id": "c100", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "VAE (beta-VAE) as a neural model architecture in a benchmark table."}
+{"id": "c101", "category": "software", "is_software": true, "confidence": "medium", "reason": "MICE, the mice R package implementing the imputation method, referenced as a package."}
+{"id": "c102", "category": "other", "is_software": false, "confidence": "low", "reason": "Row label in a results table; no identifiable software context."}
+{"id": "c103", "category": "other", "is_software": false, "confidence": "high", "reason": "Word fragment from the phrase eddy correction, not a named tool."}
+{"id": "c104", "category": "platform_service", "is_software": false, "confidence": "high", "reason": "GitLab, a code repository hosting platform, cited as a hosting service."}
+{"id": "c105", "category": "software", "is_software": true, "confidence": "high", "reason": "SDV (Synthetic Data Vault), a software library compared with SynthCity and TabGAN."}
+{"id": "c106", "category": "other", "is_software": false, "confidence": "high", "reason": "Fragment of the medkit-lib repository name in a URL."}
+{"id": "c107", "category": "other", "is_software": false, "confidence": "high", "reason": "Variable name y_train from algorithm pseudocode."}
+{"id": "c108", "category": "software", "is_software": true, "confidence": "high", "reason": "Signac, an R/Python toolkit for single-cell chromatin analysis, used for LSI."}
+{"id": "c109", "category": "method", "is_software": false, "confidence": "medium", "reason": "RankSample, a subroutine of the adversary in a privacy attack definition."}
+{"id": "c110", "category": "other", "is_software": false, "confidence": "high", "reason": "Lecanemab, an antibody drug in a clinical trial context."}
+{"id": "c111", "category": "software", "is_software": true, "confidence": "medium", "reason": "Brat, the BRAT annotation tool, listed among corpus formats and tools."}
+{"id": "c112", "category": "method", "is_software": false, "confidence": "medium", "reason": "Fixel-based analysis (FBA), a neuroimaging statistical technique applied to data."}
+{"id": "c113", "category": "software", "is_software": true, "confidence": "high", "reason": "medkit, an open-source Python library for building NLP pipelines."}
+{"id": "c114", "category": "software", "is_software": true, "confidence": "high", "reason": "Galaxy, a workflow system for bioinformatics analyses."}
+{"id": "c115", "category": "method", "is_software": false, "confidence": "high", "reason": "C-index, a survival discrimination metric."}
+{"id": "c116", "category": "software", "is_software": true, "confidence": "high", "reason": "chromVAR, a software tool used to create count matrices from BAM files."}
+{"id": "c117", "category": "generic", "is_software": false, "confidence": "high", "reason": "Ordinary English verb from the text, not a name."}
+{"id": "c118", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "ADMG, a diffusion model variant from Dhariwal and Nichol in a model list."}
+{"id": "c119", "category": "other", "is_software": false, "confidence": "high", "reason": "Gene symbol in a results table."}
+{"id": "c120", "category": "software", "is_software": true, "confidence": "medium", "reason": "ChatGPT, a generative AI tool, cited as an LLM service."}
+{"id": "c121", "category": "database", "is_software": false, "confidence": "medium", "reason": "EDAM, a bioinformatics ontology serving as a knowledge base."}
+{"id": "c122", "category": "method", "is_software": false, "confidence": "medium", "reason": "SHAP used as an explainability technique to illustrate predictor influence."}
+{"id": "c123", "category": "method", "is_software": false, "confidence": "high", "reason": "GeoMed, a robust federated aggregation method."}
+{"id": "c124", "category": "software", "is_software": true, "confidence": "high", "reason": "Grammarly, a writing assistant software tool used by authors."}
+{"id": "c125", "category": "method", "is_software": false, "confidence": "medium", "reason": "LC-MS/MS, an analytical measurement technique for drug concentrations."}
+{"id": "c126", "category": "method", "is_software": false, "confidence": "medium", "reason": "rlog, a variance-stabilising transformation applied to count data."}
+{"id": "c127", "category": "software", "is_software": true, "confidence": "high", "reason": "Conda, a package and environment manager used in the project."}
+{"id": "c128", "category": "method", "is_software": false, "confidence": "high", "reason": "Renyi differential privacy, a privacy composition method."}
+{"id": "c129", "category": "method", "is_software": false, "confidence": "high", "reason": "CPI, conditional permutation importance, compared with HCPI and SAGE."}
+{"id": "c130", "category": "software", "is_software": true, "confidence": "high", "reason": "Matplotlib, a Python plotting library, imported in code."}
+{"id": "c131", "category": "software", "is_software": true, "confidence": "medium", "reason": "eHOP, the institutional data warehouse software described as software."}
+{"id": "c132", "category": "method", "is_software": false, "confidence": "high", "reason": "Non-Interactive Proofs, a cryptographic protocol concept."}
+{"id": "c133", "category": "software", "is_software": true, "confidence": "high", "reason": "joblib, a Python library used for parallel processing."}
+{"id": "c134", "category": "method", "is_software": false, "confidence": "high", "reason": "LOCO, leave-one-covariate-out feature importance method."}
+{"id": "c135", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "GPT matcher built on the ChatGPT 3.5-turbo model."}
+{"id": "c136", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "MLP-Mixer, a neural network model architecture."}
+{"id": "c137", "category": "other", "is_software": false, "confidence": "low", "reason": "Unclear abbreviation of a comparator strategy, not software."}
+{"id": "c138", "category": "generic", "is_software": false, "confidence": "high", "reason": "Ordinary word used in survival models, not a name."}
+{"id": "c139", "category": "database", "is_software": false, "confidence": "medium", "reason": "ShareFAIR-KG, a knowledge graph serving as project infrastructure."}
+{"id": "c140", "category": "software", "is_software": true, "confidence": "high", "reason": "lumi, an R package for processing DNA methylation data."}
+{"id": "c141", "category": "software", "is_software": true, "confidence": "high", "reason": "mrgsolve, an R package, cited with version 1.5.2."}
+{"id": "c142", "category": "software", "is_software": true, "confidence": "medium", "reason": "i2b2, an open-source clinical data warehouse platform."}
+{"id": "c143", "category": "other", "is_software": false, "confidence": "medium", "reason": "SChISM, a project or study name in a slide."}
+{"id": "c144", "category": "generic", "is_software": false, "confidence": "high", "reason": "Credit-line label Software, not a name."}
+{"id": "c145", "category": "platform_service", "is_software": false, "confidence": "medium", "reason": "nf-core, a community repository of bioinformatics workflows."}
+{"id": "c146", "category": "method", "is_software": false, "confidence": "low", "reason": "SANRA, a quality guideline checklist for narrative reviews."}
+{"id": "c147", "category": "method", "is_software": false, "confidence": "high", "reason": "FedSDR, a client selection algorithm for federated learning."}
+{"id": "c148", "category": "software", "is_software": true, "confidence": "high", "reason": "Sequana, a publicly available, documented bioinformatics pipeline package."}
+{"id": "c149", "category": "platform_service", "is_software": false, "confidence": "high", "reason": "CRAN, the R package repository."}
+{"id": "c150", "category": "dataset", "is_software": false, "confidence": "low", "reason": "Label of a simulated German dataset with MCAR missingness."}
+{"id": "c151", "category": "method", "is_software": false, "confidence": "high", "reason": "LIME, a post hoc interpretability method."}
+{"id": "c152", "category": "other", "is_software": false, "confidence": "high", "reason": "Logical OR, a simulator name from a proof construction."}
+{"id": "c153", "category": "generic", "is_software": false, "confidence": "high", "reason": "Generic term LLMs, not a specific named model."}
+{"id": "c154", "category": "dataset", "is_software": false, "confidence": "low", "reason": "ImageNet, likely a pretraining dataset; context is sparse."}
+{"id": "c155", "category": "database", "is_software": false, "confidence": "low", "reason": "Repository name fragment for the ShareFAIR-KG knowledge graph."}
+{"id": "c156", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "GAN, generative adversarial network model family used to generate data."}
+{"id": "c157", "category": "method", "is_software": false, "confidence": "high", "reason": "TopP and TopR, evaluation metrics for generative models."}
+{"id": "c158", "category": "dataset", "is_software": false, "confidence": "high", "reason": "StromalNormMix, a named benchmark of pseudo-bulk stromal mixtures."}
+{"id": "c159", "category": "other", "is_software": false, "confidence": "high", "reason": "Author name from a presentation credit."}
+{"id": "c160", "category": "other", "is_software": false, "confidence": "low", "reason": "Pipeline step label from slide text, not a named tool."}
+{"id": "c161", "category": "dataset", "is_software": false, "confidence": "medium", "reason": "OAK, a clinical trial dataset used as a test set."}
+{"id": "c162", "category": "other", "is_software": false, "confidence": "medium", "reason": "Author-named pharmacokinetic model, a surname, not software."}
+{"id": "c163", "category": "software", "is_software": true, "confidence": "high", "reason": "Simulx, the Lixoft Monolix Suite software used to run simulations."}
+{"id": "c164", "category": "software", "is_software": true, "confidence": "high", "reason": "EDAMAnnot, a GitHub toolbox for annotating metadata."}
+{"id": "c165", "category": "other", "is_software": false, "confidence": "high", "reason": "Single-letter variable or parameter fragment from a config."}
+{"id": "c166", "category": "database", "is_software": false, "confidence": "high", "reason": "UMLS, the Unified Medical Language System knowledge base."}
+{"id": "c167", "category": "programming_language", "is_software": true, "confidence": "medium", "reason": "SPARQL, a query language used for federated queries, like SQL."}
+{"id": "c168", "category": "other", "is_software": false, "confidence": "high", "reason": "Variable KG from a survival metric, not a named resource."}
+{"id": "c169", "category": "method", "is_software": false, "confidence": "high", "reason": "F1 score, a classification performance metric."}
+{"id": "c170", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "Mistral-7B, a large language model used as a model."}
+{"id": "c171", "category": "method", "is_software": false, "confidence": "high", "reason": "FedCE, a federated learning weighting algorithm."}
+{"id": "c172", "category": "method", "is_software": false, "confidence": "medium", "reason": "MERFISH, a spatial transcriptomics imaging technique with probes."}
+{"id": "c173", "category": "platform_service", "is_software": false, "confidence": "high", "reason": "Zenodo, a research data repository hosting the dataset."}
+{"id": "c174", "category": "software", "is_software": true, "confidence": "high", "reason": "openSMILE, a toolkit used to extract eGeMAPS features."}
+{"id": "c175", "category": "software", "is_software": true, "confidence": "high", "reason": "iVar, a tool to infer consensus sequences from reads."}
+{"id": "c176", "category": "method", "is_software": false, "confidence": "medium", "reason": "Support vector regression, a learning algorithm family, used as a model."}
+{"id": "c177", "category": "software", "is_software": true, "confidence": "high", "reason": "BioRender, an online figure-drawing application cited for a figure."}
+{"id": "c178", "category": "platform_service", "is_software": false, "confidence": "high", "reason": "YouTube, an online video hosting platform with a footnote."}
+{"id": "c179", "category": "other", "is_software": false, "confidence": "high", "reason": "Gene symbol HLA-DMA in a results table."}
+{"id": "c180", "category": "software", "is_software": true, "confidence": "high", "reason": "mapbayest, an R function from a software package."}
+{"id": "c181", "category": "method", "is_software": false, "confidence": "medium", "reason": "RAGE, a novel graph neural network embedding framework described as a method."}
+{"id": "c182", "category": "method", "is_software": false, "confidence": "high", "reason": "SHAP described as a model-agnostic explainability method."}
+{"id": "c183", "category": "software", "is_software": true, "confidence": "high", "reason": "Apptainer, formerly Singularity, a container software."}
+{"id": "c184", "category": "other", "is_software": false, "confidence": "high", "reason": "Therapixel, a company, not a software product."}
+{"id": "c185", "category": "programming_language", "is_software": true, "confidence": "high", "reason": "R, the statistical programming language, used via the nnls package."}
+{"id": "c186", "category": "generic", "is_software": false, "confidence": "medium", "reason": "NER is the generic task name; the named tools are Drug NER 1 and 2."}
+{"id": "c187", "category": "generic", "is_software": false, "confidence": "high", "reason": "PoC is a generic abbreviation for proof of concept."}
+{"id": "c188", "category": "software", "is_software": true, "confidence": "high", "reason": "Graphviz, a graph visualization software used in the gitOmmix pipeline."}
+{"id": "c189", "category": "other", "is_software": false, "confidence": "high", "reason": "MATE, a transporter protein family (OCT2/MATEs inhibitor), not software."}
+{"id": "c190", "category": "other", "is_software": false, "confidence": "high", "reason": "RAP is the French acronym for speech recognition, a task, not software."}
+{"id": "c191", "category": "software", "is_software": true, "confidence": "high", "reason": "PyTorch, a deep learning framework used to implement the models."}
+{"id": "c192", "category": "programming_language", "is_software": true, "confidence": "high", "reason": "R, the programming language, with methods implemented in the R package poclin."}
+{"id": "c193", "category": "software", "is_software": true, "confidence": "high", "reason": "EMP-toolkit, a C++ framework for cryptographic protocols, used for implementation."}
+{"id": "c194", "category": "generic", "is_software": false, "confidence": "high", "reason": "The word software used generically before naming KeplerMapper and NetworkX."}
+{"id": "c195", "category": "method", "is_software": false, "confidence": "high", "reason": "Canny edge detection, an image segmentation algorithm."}
+{"id": "c196", "category": "dataset", "is_software": false, "confidence": "medium", "reason": "ACTG 320, a named clinical trial dataset used in result tables."}
+{"id": "c197", "category": "generic", "is_software": false, "confidence": "low", "reason": "SC is an unexpanded abbreviation, probably smart contract, a generic concept."}
+{"id": "c198", "category": "software", "is_software": true, "confidence": "high", "reason": "NVFLARE, NVIDIA's federated learning framework."}
+{"id": "c199", "category": "software", "is_software": true, "confidence": "high", "reason": "Scikit-learn, a Python machine learning library, used for computation."}
+{"id": "c200", "category": "other", "is_software": false, "confidence": "high", "reason": "CTSS, a gene symbol in a results table."}
+{"id": "c201", "category": "other", "is_software": false, "confidence": "high", "reason": "READ is a TCGA cohort abbreviation (rectum adenocarcinoma), not software."}
+{"id": "c202", "category": "software", "is_software": true, "confidence": "high", "reason": "KNIME, a graphical workflow tool for machine learning and data science."}
+{"id": "c203", "category": "software", "is_software": true, "confidence": "high", "reason": "Living Image 4.2.1 software used for imaging acquisition."}
+{"id": "c204", "category": "software", "is_software": true, "confidence": "high", "reason": "NumPy, a Python array library, named as a requirement and used."}
+{"id": "c205", "category": "method", "is_software": false, "confidence": "low", "reason": "qmIF, a quantitative multiplex immunofluorescence assay or technique, not software."}
+{"id": "c206", "category": "software", "is_software": true, "confidence": "low", "reason": "Common Workflow Language, a workflow specification compared as a provenance model."}
+{"id": "c207", "category": "generic", "is_software": false, "confidence": "medium", "reason": "DIDs, decentralized identifiers, a generic technology concept rather than software."}
+{"id": "c208", "category": "method", "is_software": false, "confidence": "high", "reason": "NNLS, non-negative least squares, a statistical method compared across deconvolution methods."}
+{"id": "c209", "category": "software", "is_software": true, "confidence": "medium", "reason": "DIABLO trained and used via its WeightedPredict output, an implementation call."}
+{"id": "c210", "category": "software", "is_software": true, "confidence": "medium", "reason": "csDeconv, a function called from the R package TOAST."}
+{"id": "c211", "category": "software", "is_software": true, "confidence": "high", "reason": "torchdiffeq, a Python library for differential equation solvers."}
+{"id": "c212", "category": "other", "is_software": false, "confidence": "low", "reason": "A board game (Cryptid) with an online version, not analysed software."}
+{"id": "c213", "category": "software", "is_software": true, "confidence": "medium", "reason": "addMotifAnnotations, a function of the ArchR software package."}
+{"id": "c214", "category": "platform_service", "is_software": false, "confidence": "medium", "reason": "Intergalactic Workflow Commission, a workflow library and repository service."}
+{"id": "c215", "category": "software", "is_software": true, "confidence": "low", "reason": "genomeAnnotations, a named pipeline step, likely an R or Bioconductor package."}
+{"id": "c216", "category": "software", "is_software": true, "confidence": "high", "reason": "ktest, a Python package used to run the st-nMMD test."}
+{"id": "c217", "category": "software", "is_software": true, "confidence": "high", "reason": "RayTune, the Ray Tune hyperparameter tuning library, used to implement ASHA."}
+{"id": "c218", "category": "software", "is_software": true, "confidence": "medium", "reason": "fetch_atlas_msdl, a function of the Nilearn software package."}
+{"id": "c219", "category": "other", "is_software": false, "confidence": "high", "reason": "absLow, a variable name in the PRUNE algorithm description."}
+{"id": "c220", "category": "other", "is_software": false, "confidence": "medium", "reason": "rdfs:subClassOf, an RDF Schema vocabulary property, a standard not software."}
+{"id": "c221", "category": "database", "is_software": false, "confidence": "medium", "reason": "Ensembl BioMart, a query interface over the Ensembl annotation database."}
+{"id": "c222", "category": "other", "is_software": false, "confidence": "high", "reason": "Wsparse, a file name or file type for read frequencies."}
+{"id": "c223", "category": "other", "is_software": false, "confidence": "high", "reason": "Single letter T, a matrix variable name."}
+{"id": "c224", "category": "other", "is_software": false, "confidence": "high", "reason": "mdl, a variable holding a model in code, not a named software."}
+{"id": "c225", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "AssemblyNet, an ensemble of 125 3D U-Nets used as a segmentation model."}
+{"id": "c226", "category": "method", "is_software": false, "confidence": "medium", "reason": "Clipped Density and Clipped Coverage, evaluation metrics for generative models."}
+{"id": "c227", "category": "other", "is_software": false, "confidence": "high", "reason": "ABCP, a trial treatment arm label in the IMPOWER150 analysis."}
+{"id": "c228", "category": "method", "is_software": false, "confidence": "medium", "reason": "Missing At Random, a statistical missingness mechanism or assumption."}
+{"id": "c229", "category": "software", "is_software": true, "confidence": "medium", "reason": "Deepfolding, a tool used to segment the skeleton into sulcal regions."}
+{"id": "c230", "category": "platform_service", "is_software": false, "confidence": "low", "reason": "bconv, the KEGG SOAP ID-conversion web service called in a workflow."}
+{"id": "c231", "category": "software", "is_software": true, "confidence": "medium", "reason": "Adam Langley's Go ed25519 implementation, code from which the authors derived theirs."}
+{"id": "c232", "category": "generic", "is_software": false, "confidence": "medium", "reason": "Cuffless, an adjective describing blood pressure architectures, not a name."}
+{"id": "c233", "category": "software", "is_software": true, "confidence": "high", "reason": "Greta 2.0, an open-source framework for embodied virtual agents."}
+{"id": "c234", "category": "software", "is_software": true, "confidence": "high", "reason": "BioFlow-Insight, a tool offering a structured view of workflows."}
+{"id": "c235", "category": "method", "is_software": false, "confidence": "high", "reason": "Coordinate-based meta-analysis, a neuroimaging meta-analysis technique."}
+{"id": "c236", "category": "method", "is_software": false, "confidence": "high", "reason": "Statis, a multi-table data synthesis method and its derived methods."}
+{"id": "c237", "category": "generic", "is_software": false, "confidence": "high", "reason": "The word ecosystem, used generically for R and Python software environments."}
+{"id": "c238", "category": "method", "is_software": false, "confidence": "high", "reason": "Bayesian Information Criterion, a model selection criterion."}
+{"id": "c239", "category": "other", "is_software": false, "confidence": "high", "reason": "TRIM5, a gene symbol in a results table."}
+{"id": "c240", "category": "method", "is_software": false, "confidence": "medium", "reason": "BOR, best overall response, a clinical response metric compared for survival."}
+{"id": "c241", "category": "dataset", "is_software": false, "confidence": "medium", "reason": "MNI152, a standard brain template used as a reference dataset."}
+{"id": "c242", "category": "other", "is_software": false, "confidence": "medium", "reason": "TM3, a label for a test task in a list, not software."}
+{"id": "c243", "category": "database", "is_software": false, "confidence": "high", "reason": "UniProtKB, a protein knowledge base used as a biomedical KG source."}
+{"id": "c244", "category": "generic", "is_software": false, "confidence": "high", "reason": "The word subworkflow, a generic term for workflow components."}
+{"id": "c245", "category": "method", "is_software": false, "confidence": "medium", "reason": "CubicSplineIP, an imputation method named in a benchmark method list."}
+{"id": "c246", "category": "platform_service", "is_software": false, "confidence": "high", "reason": "Hugging Face platform, used to load transformer models."}
+{"id": "c247", "category": "software", "is_software": true, "confidence": "medium", "reason": "ZipFile, the Python zipfile library used to open an archive."}
+{"id": "c248", "category": "method", "is_software": false, "confidence": "medium", "reason": "concatnoscale, a feature concatenation method label in a comparison."}
+{"id": "c249", "category": "other", "is_software": false, "confidence": "medium", "reason": "CodeMeta, a software metadata schema or standard, not software itself."}
+{"id": "c250", "category": "software", "is_software": true, "confidence": "high", "reason": "curve25519-dalek, a cryptography library used for the prime order group."}
+{"id": "c251", "category": "software", "is_software": true, "confidence": "high", "reason": "FreeSurfer recon-all pipeline used to process the structural template."}
+{"id": "c252", "category": "software", "is_software": true, "confidence": "medium", "reason": "make_regression, a scikit-learn function used to generate synthetic data."}
+{"id": "c253", "category": "method", "is_software": false, "confidence": "medium", "reason": "FedMFS, a federated multimodal learning method fusing decision-level predictions."}
+{"id": "c254", "category": "software", "is_software": true, "confidence": "high", "reason": "nichenetr 1.1.1, an R package predicting ligand-receptor interactions."}
+{"id": "c255", "category": "software", "is_software": true, "confidence": "high", "reason": "SciPy, a Python scientific computing library, listed as used."}
+{"id": "c256", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "DINOv2 frozen features with dinov2_vitb14 backbone, used as a pretrained model."}
+{"id": "c257", "category": "other", "is_software": false, "confidence": "medium", "reason": "goTerm, a variable name inside a SPARQL query."}
+{"id": "c258", "category": "method", "is_software": false, "confidence": "high", "reason": "Brier score, a probabilistic prediction accuracy metric."}
+{"id": "c259", "category": "method", "is_software": false, "confidence": "medium", "reason": "MAFL, a hybrid multimodal federated learning framework or algorithm."}
+{"id": "c260", "category": "software", "is_software": true, "confidence": "high", "reason": "Luigi, a Python package for constructing pipelines, developed by Spotify."}
+{"id": "c261", "category": "method", "is_software": false, "confidence": "medium", "reason": "Neuro-ConText, a text-to-brain-map association procedure compared to baselines."}
+{"id": "c262", "category": "database", "is_software": false, "confidence": "medium", "reason": "TomTom, a knowledge graph resource of molecular interactions in tomato."}
+{"id": "c263", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "Neural spline flows, a deep neural density estimator architecture (NSF)."}
+{"id": "c264", "category": "other", "is_software": false, "confidence": "low", "reason": "Unclear label, appears as a table category note, not a named software."}
+{"id": "c265", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "SimulAD, a disease progression model trained on ADNI data."}
+{"id": "c266", "category": "software", "is_software": true, "confidence": "high", "reason": "Keras, a Python deep learning library used to build the FFNN."}
+{"id": "c267", "category": "ml_model", "is_software": false, "confidence": "high", "reason": "PPG2BP-Net, a CNN-MLP neural network architecture for blood pressure."}
+{"id": "c268", "category": "software", "is_software": true, "confidence": "high", "reason": "NumPy, used for vectorization in the Python implementation."}
+{"id": "c269", "category": "method", "is_software": false, "confidence": "high", "reason": "Cox proportional hazards model and ratios, a statistical survival method."}
+{"id": "c270", "category": "programming_language", "is_software": true, "confidence": "high", "reason": "Python, the programming language, named as the ktest package language."}
+{"id": "c271", "category": "generic", "is_software": false, "confidence": "high", "reason": "The full model, a generic phrase for the complete model version."}
+{"id": "c272", "category": "other", "is_software": false, "confidence": "high", "reason": "BLVRA, a gene symbol in a results table."}
+{"id": "c273", "category": "method", "is_software": false, "confidence": "medium", "reason": "CEBRA, described as a machine learning method for low-dimensional embeddings."}
+{"id": "c274", "category": "software", "is_software": true, "confidence": "high", "reason": "fgsea, an R package for gene set enrichment, with fgsea::fora called."}
+{"id": "c275", "category": "method", "is_software": false, "confidence": "medium", "reason": "BlREAL2, a cell-type deconvolution method compared with NNLS."}
+{"id": "c276", "category": "ml_model", "is_software": false, "confidence": "medium", "reason": "CNNTransformer, a neural architecture combining convolutional encoder and Transformer."}
+{"id": "c277", "category": "software", "is_software": true, "confidence": "medium", "reason": "XGBoost, a gradient boosting library used as a learning algorithm."}
+{"id": "c278", "category": "method", "is_software": false, "confidence": "medium", "reason": "IFU, an unlearning method for federated learning retraining, not software."}
+{"id": "c279", "category": "other", "is_software": false, "confidence": "high", "reason": "Figure labels for processes and tools, not a named software."}
+{"id": "c280", "category": "method", "is_software": false, "confidence": "high", "reason": "Proxy encryption, a cryptographic technique."}
+{"id": "c281", "category": "software", "is_software": true, "confidence": "high", "reason": "Google Gemini 2.5 Pro, an AI tool used to generate the code base."}
+{"id": "c282", "category": "generic", "is_software": false, "confidence": "medium", "reason": "Git repositories, a generic phrase for code hosting repositories."}
+{"id": "c283", "category": "other", "is_software": false, "confidence": "medium", "reason": "Fragment of the method name mice-norm.nob, not a software name."}
+{"id": "c284", "category": "software", "is_software": true, "confidence": "high", "reason": "MOABB, a Python library of brain-computer interface benchmarks."}
