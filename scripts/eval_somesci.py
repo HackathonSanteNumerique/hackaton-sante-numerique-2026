@@ -579,28 +579,32 @@ def evaluate(args):
         n_names += len(predictions)
 
         # Document level
-        # The excluded types are left out of the gold, and the names that match one of their software
-        # are not counted (neither true nor false positives)
-        all_gold = gold_software(doc)
-        gold = [g for g in all_gold if g["type"] not in ignored_types]
-        ignored = {i for i, (name, _) in enumerate(predictions)
-                   if any(match_score(name, g["aliases"]) for g in all_gold if g["type"] in ignored_types)}
+        # The matching is done against all the software of the document, as without --exclude-types; the
+        # excluded software are then left out of the counts: a match to one of them, and a name that only
+        # matches one, count neither as true nor as false positives. So excluding a type does not change
+        # how the other software are matched.
+        gold = gold_software(doc)
+        excluded = {j for j, g in enumerate(gold) if g["type"] in ignored_types}
+        included = [j for j in range(len(gold)) if j not in excluded]
         pairs = [(score, i, j) for i, (name, _) in enumerate(predictions) for j, g in enumerate(gold)
                  if (score := match_score(name, g["aliases"]))]
         for level, min_score in (("doc_exact", 2), ("doc_relaxed", 1)):
-            matched = greedy([p for p in pairs if p[0] >= min_score])
-            # Another name of a software already matched (e.g. its abbreviation) is not a false positive
-            matched_i, matched_j = {i for _, i, _ in matched}, {j for _, _, j in matched}
-            extra = {i for score, i, j in pairs if score >= min_score and j in matched_j and i not in matched_i}
-            extra |= ignored - matched_i
+            level_pairs = [p for p in pairs if p[0] >= min_score]
+            matched_all = greedy(level_pairs)
+            matched = [m for m in matched_all if m[2] not in excluded]
+            matched_i, matched_j = {i for _, i, _ in matched_all}, {j for _, _, j in matched_all}
+            # Not counted: another name of a software already matched (e.g. its abbreviation), a name matched
+            # to an excluded software, and a name that only matches one
+            extra = {i for _, i, j in level_pairs if i not in matched_i and (j in matched_j or j in excluded)}
+            extra |= {i for _, i, j in matched_all if j in excluded}
             doc_counts[level].update(tp=len(matched), fp=len(predictions) - len(matched) - len(extra),
-                                 fn=len(gold) - len(matched))
+                                     fn=len(included) - len(matched))
             if level == "doc_relaxed":
                 relaxed, relaxed_extra = matched, extra
                 for _, _, j in matched:
                     type_recall[gold[j]["type"]]["tp"] += 1
-                for g in gold:
-                    type_recall[g["type"]]["total"] += 1
+                for j in included:
+                    type_recall[gold[j]["type"]]["total"] += 1
         # Versions of the software found (relaxed): predicted versions against the gold versions
         version_errors = []
         for _, i, j in relaxed:
@@ -608,35 +612,43 @@ def evaluate(args):
             predicted = predicted_versions(name, version, gold[j]["aliases"])
             expected = {normalise_version(v) for v in gold[j]["version"]} - {""}
             doc_counts["version"].update(tp=len(predicted & expected), fp=len(predicted - expected),
-                                     fn=len(expected - predicted))
+                                         fn=len(expected - predicted))
             if predicted != expected:
                 version_errors.append({"software": gold[j]["name"], "predicted_name": name,
                                        "gold": sorted(expected), "predicted": sorted(predicted)})
 
-        # Mention level
-        gold_spans = [e for e in doc["entities"] if e["label"] in SOFTWARE_TYPES - ignored_types]
-        alias_spans = [e for e in doc["entities"] if e["label"] in ALIAS_TYPES | ignored_types]
+        # Mention level, the same way: spans matched against all the gold spans, then the excluded ones left out
+        gold_spans = [e for e in doc["entities"] if e["label"] in SOFTWARE_TYPES]
+        alias_spans = [e for e in doc["entities"] if e["label"] in ALIAS_TYPES]
+        excluded_spans = {j for j, g in enumerate(gold_spans) if g["label"] in ignored_types}
+        n_included_spans = len(gold_spans) - len(excluded_spans)
         # Softcite gives the offsets; for Baguette, the names are searched in the text
         if predicted_spans is None:
             spans, missing = locate(predictions, doc["text"])
         else:
             spans, missing = predicted_spans, []
         not_in_text += len(missing)
+        on = lambda s, g: s[0] < g["end"] and g["start"] < s[1]
         spans = [s for s in spans
-                 if any(s[0] < g["end"] and g["start"] < s[1] for g in gold_spans)
-                 or not any(s[0] < a["end"] and a["start"] < s[1] for a in alias_spans)]
+                 if any(on(s, g) for g in gold_spans) or not any(on(s, a) for a in alias_spans)]
         strict = greedy([(1, i, j) for i, s in enumerate(spans) for j, g in enumerate(gold_spans)
                          if (s[0], s[1]) == (g["start"], g["end"])])
         overlap = greedy([(min(s[1], g["end"]) - max(s[0], g["start"]), i, j)
-                          for i, s in enumerate(spans) for j, g in enumerate(gold_spans)
-                          if s[0] < g["end"] and g["start"] < s[1]])
-        for level, matched in (("mention_strict", strict), ("mention_overlap", overlap)):
-            doc_counts[level].update(tp=len(matched), fp=len(spans) - len(matched) + len(missing),
-                                 fn=len(gold_spans) - len(matched))
-        for j in {j for _, _, j in overlap}:
-            mention_type_recall[gold_spans[j]["label"]]["tp"] += 1
-        for g in gold_spans:
-            mention_type_recall[g["label"]]["total"] += 1
+                          for i, s in enumerate(spans) for j, g in enumerate(gold_spans) if on(s, g)])
+        for level, matched_all in (("mention_strict", strict), ("mention_overlap", overlap)):
+            matched = [m for m in matched_all if m[2] not in excluded_spans]
+            matched_i = {i for _, i, _ in matched_all}
+            not_counted = {i for _, i, j in matched_all if j in excluded_spans}
+            not_counted |= {i for i, s in enumerate(spans)
+                            if i not in matched_i and any(on(s, gold_spans[j]) for j in excluded_spans)}
+            doc_counts[level].update(tp=len(matched), fp=len(spans) - len(matched) - len(not_counted) + len(missing),
+                                     fn=n_included_spans - len(matched))
+            if level == "mention_overlap":
+                for _, _, j in matched:
+                    mention_type_recall[gold_spans[j]["label"]]["tp"] += 1
+        for j, g in enumerate(gold_spans):
+            if j not in excluded_spans:
+                mention_type_recall[g["label"]]["total"] += 1
 
         for level in LEVELS:
             c = doc_counts[level]
@@ -646,7 +658,7 @@ def evaluate(args):
         # Errors, at document level (relaxed)
         fp = [predictions[i][0] for i in range(len(predictions))
               if i not in {i for _, i, _ in relaxed} and i not in relaxed_extra]
-        fn = [gold[j]["name"] for j in range(len(gold)) if j not in {j for _, _, j in relaxed}]
+        fn = [gold[j]["name"] for j in included if j not in {j for _, _, j in relaxed}]
         if fp or fn or version_errors:
             errors.append({"id": doc["id"], "file": doc["file"], "false_positives": fp, "false_negatives": fn,
                            "not_in_text": missing, "version_errors": version_errors})

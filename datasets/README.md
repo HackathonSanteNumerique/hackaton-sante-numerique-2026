@@ -46,7 +46,9 @@ Publications from the PEPR Santé Numérique HAL collection, processed with GROB
 | `bio2flow/*.ann`, `*.txt` | 264 + 264 | 19 MB | bio2flow, the [CoPaLink](../models/README.md#copalink) paper-text NER (`Tool` entities), in brat format: the `.txt` is the text given to the model |
 | `bio2flow/*.grobid.tei.xml.json`, `bio2flow_json/*.json` | 134, 264 | 13 MB | The same predictions as JSON, from [`copalink_client.py`](../scripts/copalink_client.py): `paragraphs[].entities[]` with `begin` / `end` in the paragraph and `confidence` |
 
-> **Note:** there are **no PDFs**; get them from HAL. One Softcite file has no GROBID counterpart (`Aknowledgegraph…`), and two GROBID papers have no Softcite output. The [starter notebook](../notebooks/softcite_analysis.ipynb) reads `softcite/*.software.json`. `scripts/baguette_to_softcite.py` and `scripts/ann_to_softcite.py` convert the Baguette and bio2flow outputs to the Softcite schema. To compare with other extractors, run the [models](../models/README.md) on the `grobid/` files.
+> **Warning:** the bio2flow output above (as of 2026-10-15) is damaged for 61 papers: 48 have no entity at all, and 13 have far fewer than a re-run gives (3 instead of 83 for one). The endpoint gives the right result for these papers now. The [extractor comparison notebook](../notebooks/extractor_comparison.ipynb) uses a re-run of the 264 papers.
+
+> **Note:** there are **no PDFs**; get them from HAL. One Softcite file has no GROBID counterpart (`Aknowledgegraph…`), and two GROBID papers have no Softcite output. The [starter notebook](../notebooks/softcite_analysis.ipynb) reads `softcite/*.software.json`. `scripts/baguette_to_softcite.py` and `scripts/ann_to_softcite.py` convert the Baguette and bio2flow outputs to the Softcite schema. The [extractor comparison notebook](../notebooks/extractor_comparison.ipynb) compares the three. To compare with other extractors, run the [models](../models/README.md) on the `grobid/` files.
 
 **The HAL collection** (from the [HAL search API](https://api.archives-ouvertes.fr/search/PEPR_SANTENUM/?q=*:*&rows=0&wt=json)):
 

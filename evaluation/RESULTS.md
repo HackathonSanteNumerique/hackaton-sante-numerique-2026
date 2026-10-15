@@ -5,7 +5,8 @@ Scores of the software-mention tools against [SoMeSci](../datasets/README.md#som
 - **Main score:** document level with relaxed matching (`doc_relaxed`): the software of a document against the unique names given by the tool.
 - **All the numbers:** `data/somesci/results/<tool>/<run>.json`, with the errors of each document.
 - **Run:** all software types, implicit mentions included (no `--explicit-only`, no `--exclude-os`), unless written otherwise.
-- **Inputs of the results below:** the first runs (`--split blocks`): a methods section sent in one block, a full paper split at blank lines, which in SoMeSci are sections. They have no confidence intervals. They will be replaced by runs on paragraphs (`--split paragraphs`, now the default), with 95% intervals; see [Is the comparison fair?](#is-the-comparison-fair). `plos_sentences` is the same with both. **bio2flow** was run on paragraphs only, with 95% intervals; for bio2flow the split matters little, because its client joins the paragraphs of a document into one text anyway.
+- **Inputs:** Baguette and Softcite with `--split blocks` (a methods section in one block, a full paper split at blank lines, which in SoMeSci are sections), bio2flow with `--split paragraphs` (one paragraph per line of the text; its client joins them into one document anyway). Sentences are the same input for all three.
+- **Intervals:** 95% bootstrap intervals over the documents (1,000 samples).
 
 ## How the evaluation works
 
@@ -98,16 +99,21 @@ So `doc_exact` asks for the same name as the annotators; `doc_relaxed` accepts a
 
 Document level, relaxed matching:
 
-| Config | Tool | P | R | F1 | F1 mention (overlap) | F1 version |
+| Config | Tool | P | R | F1 (95% interval) | F1 mention (overlap) | F1 version |
 |---|---|---|---|---|---|---|
-| `plos_sentences` | Baguette | 0.915 | 0.746 | **0.822** | 0.770 | 0.529 |
-| | Softcite | 0.932 | 0.879 | **0.904** | 0.906 | 0.939 |
-| `plos_methods` | Baguette | 0.710 | 0.438 | **0.542** | 0.512 | 0.382 |
-| | Softcite | 0.787 | 0.834 | **0.809** | 0.791 | 0.888 |
-| `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** | 0.519 | 0.574 |
-| | Softcite | 0.836 | 0.807 | **0.821** | 0.793 | 0.935 |
+| `plos_sentences` | Baguette | 0.915 | 0.746 | **0.822** (0.802–0.843) | 0.770 | 0.529 |
+| | Softcite | 0.932 | 0.879 | **0.904** (0.891–0.917) | 0.906 | 0.939 |
+| | bio2flow ‡ | 0.717 | 0.094 | **0.166** (0.133–0.197) | 0.172 | – |
+| `plos_methods` | Baguette | 0.710 | 0.438 | **0.542** (0.513–0.576) | 0.512 | 0.382 |
+| | Softcite | 0.787 | 0.834 | **0.809** (0.787–0.831) | 0.791 | 0.888 |
+| | bio2flow ‡ | 0.491 | 0.452 | **0.471** (0.427–0.511) | 0.449 | – |
+| `pubmed_fulltext` | Baguette | 0.634 | 0.456 | **0.531** (0.462–0.598) | 0.519 | 0.574 |
+| | Softcite | 0.836 | 0.807 | **0.821** (0.784–0.866) | 0.793 | 0.935 |
+| | bio2flow ‡ | 0.367 | 0.604 | **0.456** (0.371–0.534) | 0.398 | – |
 
-bio2flow is not on this table: its training corpus never counts programming languages or operating systems as tools (see [bio2flow](#bio2flow)), so it is compared with the others on **applications and plugins only**, the software that all three tools count:
+‡ For completeness only. bio2flow is on paragraphs, and it gives no versions (–). Its training corpus never counts programming languages or operating systems as tools, so all types put it at a disadvantage by definition; compare it on applications and plugins, below.
+
+So the three tools are compared on **applications and plugins only**, the software that all three count (see [bio2flow](#bio2flow) and [Excluding types](README.md#excluding-types)):
 
 ```bash
 evaluate --config <config> --tool <tool> --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
@@ -117,19 +123,21 @@ Document level, relaxed matching, applications and plugins only:
 
 | Config | Tool | P | R | F1 (95% interval) |
 |---|---|---|---|---|
-| `plos_sentences` | Baguette | – | – | – |
-| | Softcite | – | – | – |
+| `plos_sentences` | Baguette | 0.906 | 0.791 | **0.844** (0.824–0.866) |
+| | Softcite | 0.923 | 0.926 | **0.925** (0.911–0.938) |
 | | bio2flow | 0.714 | 0.111 | **0.191** (0.153–0.227) |
-| `plos_methods` | Baguette | – | – | – |
-| | Softcite | – | – | – |
+| `plos_methods` | Baguette | 0.679 | 0.432 | **0.528** (0.497–0.563) |
+| | Softcite | 0.766 | 0.847 | **0.805** (0.779–0.829) |
 | | bio2flow | 0.490 | 0.513 | **0.501** (0.456–0.542) |
-| `pubmed_fulltext` | Baguette | – | – | – |
-| | Softcite | – | – | – |
+| `pubmed_fulltext` | Baguette | 0.617 | 0.474 | **0.537** (0.464–0.610) |
+| | Softcite | 0.829 | 0.855 | **0.842** (0.797–0.893) |
 | | bio2flow | 0.364 | 0.667 | **0.471** (0.385–0.550) |
 
-Baguette and Softcite on applications and plugins only: to run, with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, on the same runs. bio2flow's rows are on paragraphs (`plos_methods-paragraphs`, `pubmed_fulltext-paragraphs`).
+Baguette and Softcite on blocks, bio2flow on paragraphs (see the inputs at the top); on sentences the inputs are the same.
 
-- **bio2flow is below both tools, even on applications and plugins.** Its F1 there (0.19, 0.50, 0.47) is below the F1 of Baguette and Softcite on *all* types (0.82 and 0.90 on sentences, 0.53–0.81 on longer texts). Far below Softcite everywhere; on longer texts, only 0.04–0.06 below Baguette, and above Baguette in recall of applications (0.49 against 0.43 on methods sections, 0.62 against 0.48 on full papers). Excluding programming environments and operating systems raises its F1 by only 0.02–0.03.
+- **The ranking does not change: Softcite, then Baguette, then bio2flow.** Softcite is clearly ahead everywhere: its interval overlaps neither of the others in any config.
+- **The exclusion changes little for Baguette and Softcite** (F1 within 0.03 of their all-types F1: Baguette 0.822 → 0.844, 0.542 → 0.528, 0.531 → 0.537; Softcite 0.904 → 0.925, 0.809 → 0.805, 0.821 → 0.842), and little for bio2flow (+0.02 to +0.03). So bio2flow's low scores are not an effect of what counts as software.
+- **bio2flow against Baguette:** far below on sentences (0.19 against 0.84). On the longer texts the two are close and their intervals overlap (methods 0.456–0.542 against 0.497–0.563, full papers 0.385–0.550 against 0.464–0.610), so the difference there is not clear. They get there differently: bio2flow has the higher recall (0.51 against 0.43 on methods sections, 0.67 against 0.47 on full papers), Baguette the higher precision (0.68 against 0.49, 0.62 against 0.36).
 - **Sentences:** bio2flow names a software in few of them (121 names for 916 gold software), so recall is 0.11. Its precision there is the best of its three configs (0.71).
 - **Longer texts:** recall rises (0.51 on methods sections, 0.67 on full papers), but precision falls (0.49, 0.36). On full papers it gives 477 names for 285 gold software.
 
@@ -142,7 +150,7 @@ Recall by type, document level (relaxed):
 | `PLUGIN` | 0.674 | **0.698** | 0.349 | 0.450 | **0.775** | 0.675 | 0.472 | 0.750 | **0.944** |
 | `OPERATINGSYSTEM` | 0.037 | 0.018 | 0.000 | 0.032 | 0.097 | 0.000 | 0.077 | 0.000 | 0.000 |
 
-bio2flow's columns are on paragraphs, the others on the first runs (blocks).
+bio2flow's columns are on paragraphs, the others on blocks.
 
 **Differences between the tools:**
 
@@ -158,7 +166,7 @@ bio2flow's columns are on paragraphs, the others on the first runs (blocks).
 
 ### Is the comparison fair?
 
-Checked on 2026-10-14, with the public sources and the outputs of both tools on the PEPR corpus (🤗 [`pepr-hal-data`](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data), `baguette/` and `softcite/`).
+Checked with the public sources and the outputs of both tools on the PEPR corpus (🤗 [`pepr-hal-data`](https://huggingface.co/datasets/HackatonSanteNumerique/pepr-hal-data), `baguette/` and `softcite/`).
 
 | Check | Result | Fair? |
 |---|---|---|
@@ -167,15 +175,15 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 | Same tool versions as on PEPR | Softcite: the same service, `software-mentions` 0.9.0-SNAPSHOT, revision `54efbc6`, for PEPR and SoMeSci. Baguette: the same endpoint, which cuts long inputs on both | ✓ |
 | SoMeSci articles in the training data of Softcite | None of the 1,257 SoMeSci articles (PMC ids) is in the Softcite corpus of the [software-mentions](https://github.com/softcite/software-mentions) repo (2,561 PMC articles in training, about 530 in the holdout). The repo uses SoMeSci only to build training data for the used / created / shared classifier, which is not scored here. Not checked: whether the weights on the Space were trained on more data than the repo | ✓ as far as the repo shows |
 | SoMeSci articles in the training data of Baguette | Unknown: its 531k training paragraphs are not public. Its labels come from an LLM teacher, not from SoMeSci, so at most the texts could overlap, not the annotations | ? |
-| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service **Fixed in the script:** `--split paragraphs` (now the default) sends both tools the paragraphs of SoMeSci, one per line of the text. To be run | ~ until the runs on paragraphs |
+| Inputs as in normal use | No, for both. On PEPR, Baguette gets GROBID paragraphs (median 314 characters, 14% cut into pieces); here, a methods section (median about 1,350 words, 7 paragraphs) is one input, and a full paper is split at blank lines, which in SoMeSci separate sections, not paragraphs. On PEPR, Softcite reads the whole paper (TEI or PDF) and spreads a name found once to its other occurrences; here it gets the same blocks as Baguette, through its text service `--split paragraphs` sends the paragraphs of SoMeSci instead, one per line of the text; Baguette and Softcite have not been run on it | ~ |
 | Effect of cutting on Baguette | Measured on PEPR, paragraph by paragraph, against the Softcite mentions of the same paragraph: Baguette gives 0.48 names per Softcite name on paragraphs it did not cut (3,307 paragraphs), 0.42 on paragraphs it cut (1,131). Cutting costs little | ✓ probably |
 | Failed requests counted as misses | On PEPR, 7 of 22,410 Baguette paragraphs failed. On SoMeSci, not checked | ✓ probably |
 | What counts as software | Not neutral. SoMeSci and Softcite are human annotation schemes for the same task, with similar choices on names and versions; Softcite learned them from human annotations, Baguette from an LLM teacher with its own definition (software apart from datasets, roles…). SoMeSci measures agreement with such a scheme, which favours a model trained on one | ✗ favours Softcite |
-| Uncertainty | The gaps are large (0.08 to 0.29 of F1, on 285 to 1,142 gold software). **Added to the script:** `evaluate` gives 95% bootstrap intervals over the documents. To be added to these tables when `evaluate` is run again | ~ until then |
+| Uncertainty | 95% bootstrap intervals over the documents (1,000 samples), in the tables. On all types, the intervals of Baguette and Softcite do not overlap in any config (e.g. 0.462–0.598 against 0.784–0.866 on full papers, the fewest documents): the gap between the two tools is clear | ✓ |
 
 **On PEPR, without gold:** on the 263 papers with both outputs, Baguette gives 7.9 unique names per paper and Softcite 8.8. Only about half are shared (51% of Baguette's names, 46% of Softcite's, with the relaxed matching). Per paragraph, Baguette gives about half as many names as Softcite: it names a software in fewer of the paragraphs where it appears. So the two tools disagree a lot on real papers too, and SoMeSci only says which one is closer to its annotators.
 
-**bio2flow** (checked on 2026-10-15):
+**bio2flow:**
 
 | Check | Result | Fair? |
 |---|---|---|
@@ -188,11 +196,9 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 
 **What would make it fairer:**
 
-1. ✓ in the script, to run: send the methods sections and full papers paragraph by paragraph (the lines of the SoMeSci texts) to both tools, as on PEPR. `prepare`, then Baguette and Softcite on `plos_methods-paragraphs` and `pubmed_fulltext-paragraphs`, then `evaluate` (see [README.md](README.md#1-prepare)).
+1. Run Baguette and Softcite on paragraphs (`--split paragraphs`), as on PEPR and as bio2flow, on `plos_methods` and `pubmed_fulltext` (see [README.md](README.md#1-prepare)).
 2. Read the `errors`: whether Baguette's misses are software it does not see, or names SoMeSci counts as software and Baguette does not (or puts in `datasets`).
-3. ✓ in the script: 95% bootstrap intervals in `evaluate`, by default. Run `evaluate` again on all the runs, the first ones with `--split blocks`.
-4. Compare the tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of two tools overlap.
-5. ✓ in the script: compare the three tools on the software they all count, with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`.
+3. Compare the tools on the same resampled documents (a paired bootstrap): it says whether a gap is real even when the intervals of two tools overlap.
 
 ## Baguette
 
@@ -200,11 +206,11 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 
 ### Summary
 
-| Config | Documents | Gold software | Predicted names | P | R | F1 | F1 mention (overlap) |
+| Config | Documents | Gold software | Predicted names | P | R | F1 (95% interval) | F1 mention (overlap) |
 |---|---|---|---|---|---|---|---|
-| `plos_sentences` | 677 | 916 | 753 | 0.915 | 0.746 | **0.822** | 0.770 |
-| `plos_methods` | 480 | 1,142 | 719 | 0.710 | 0.438 | **0.542** | 0.512 |
-| `pubmed_fulltext` | 97 | 285 | 208 | 0.634 | 0.456 | **0.531** | 0.519 |
+| `plos_sentences` | 677 | 916 | 753 | 0.915 | 0.746 | **0.822** (0.802–0.843) | 0.770 |
+| `plos_methods` | 480 | 1,142 | 719 | 0.710 | 0.438 | **0.542** (0.513–0.576) | 0.512 |
+| `pubmed_fulltext` | 97 | 285 | 208 | 0.634 | 0.456 | **0.531** (0.462–0.598) | 0.519 |
 
 - **Sentences against longer texts:** Baguette does well on single sentences (F1 0.82). On methods sections and full papers it drops to about 0.53–0.54, with both precision and recall lower.
 - **Methods sections are as hard as full papers.** A methods section is sent as one paragraph, which the server cuts into pieces of about 200 tokens. So the drop seems to come with the length of the input, more than with the parts of the paper (introduction, references…) that only a full text has. This is a hypothesis, to check in the `errors`.
@@ -214,13 +220,13 @@ Checked on 2026-10-14, with the public sources and the outputs of both tools on 
 
 677 sentences. Baguette gave 753 unique names; 17 of them are not in the text.
 
-| Level | P | R | F1 | TP | FP | FN |
-|---|---|---|---|---|---|---|
-| `doc_exact` | 0.756 | 0.621 | 0.682 | 569 | 184 | 347 |
-| `doc_relaxed` | **0.915** | **0.746** | **0.822** | 683 | 63 | 233 |
-| `mention_strict` | 0.660 | 0.607 | 0.633 | 581 | 299 | 376 |
-| `mention_overlap` | 0.803 | 0.739 | 0.770 | 707 | 173 | 250 |
-| `version` | 0.506 | 0.555 | 0.529 | 266 | 260 | 213 |
+| Level | P | R | F1 | F1 95% | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.756 | 0.621 | 0.682 | 0.651–0.713 | 569 | 184 | 347 |
+| `doc_relaxed` | **0.915** | **0.746** | **0.822** | 0.802–0.843 | 683 | 63 | 233 |
+| `mention_strict` | 0.660 | 0.607 | 0.633 | 0.604–0.661 | 581 | 299 | 376 |
+| `mention_overlap` | 0.803 | 0.739 | 0.770 | 0.748–0.792 | 707 | 173 | 250 |
+| `version` | 0.506 | 0.555 | 0.529 | 0.484–0.573 | 266 | 260 | 213 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -245,13 +251,13 @@ The `errors` of the results JSON tell real misses apart from differences of name
 
 480 methods sections. Baguette gave 719 unique names, 1.5 per section; 26 of them are not in the text. The gold has 1,142 software (2.4 per section) and 1,563 mentions.
 
-| Level | P | R | F1 | TP | FP | FN |
-|---|---|---|---|---|---|---|
-| `doc_exact` | 0.558 | 0.351 | 0.431 | 401 | 318 | 741 |
-| `doc_relaxed` | **0.710** | **0.438** | **0.542** | 500 | 204 | 642 |
-| `mention_strict` | 0.450 | 0.397 | 0.422 | 620 | 757 | 943 |
-| `mention_overlap` | 0.546 | 0.481 | 0.512 | 752 | 625 | 811 |
-| `version` | 0.367 | 0.399 | 0.382 | 99 | 171 | 149 |
+| Level | P | R | F1 | F1 95% | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.558 | 0.351 | 0.431 | 0.404–0.464 | 401 | 318 | 741 |
+| `doc_relaxed` | **0.710** | **0.438** | **0.542** | 0.513–0.576 | 500 | 204 | 642 |
+| `mention_strict` | 0.450 | 0.397 | 0.422 | 0.379–0.468 | 620 | 757 | 943 |
+| `mention_overlap` | 0.546 | 0.481 | 0.512 | 0.460–0.559 | 752 | 625 | 811 |
+| `version` | 0.367 | 0.399 | 0.382 | 0.326–0.444 | 99 | 171 | 149 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -271,13 +277,13 @@ The `errors` of the results JSON tell real misses apart from differences of name
 
 97 full papers. Baguette gave 208 unique names, about 2 per paper; 11 of them are not in the text. The gold has 285 software (about 3 per paper) and 414 mentions.
 
-| Level | P | R | F1 | TP | FP | FN |
-|---|---|---|---|---|---|---|
-| `doc_exact` | 0.490 | 0.358 | 0.414 | 102 | 106 | 183 |
-| `doc_relaxed` | **0.634** | **0.456** | **0.531** | 130 | 75 | 155 |
-| `mention_strict` | 0.409 | 0.406 | 0.407 | 168 | 243 | 246 |
-| `mention_overlap` | 0.521 | 0.517 | 0.519 | 214 | 197 | 200 |
-| `version` | 0.547 | 0.603 | 0.574 | 35 | 29 | 23 |
+| Level | P | R | F1 | F1 95% | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.490 | 0.358 | 0.414 | 0.358–0.473 | 102 | 106 | 183 |
+| `doc_relaxed` | **0.634** | **0.456** | **0.531** | 0.462–0.598 | 130 | 75 | 155 |
+| `mention_strict` | 0.409 | 0.406 | 0.407 | 0.306–0.503 | 168 | 243 | 246 |
+| `mention_overlap` | 0.521 | 0.517 | 0.519 | 0.414–0.618 | 214 | 197 | 200 |
+| `version` | 0.547 | 0.603 | 0.574 | 0.418–0.730 | 35 | 29 | 23 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -309,11 +315,11 @@ done
 
 ### Summary
 
-| Config | Documents | Gold software | Predicted names | P | R | F1 | F1 mention (overlap) |
+| Config | Documents | Gold software | Predicted names | P | R | F1 (95% interval) | F1 mention (overlap) |
 |---|---|---|---|---|---|---|---|
-| `plos_sentences` | 677 | 916 | 866 | 0.932 | 0.879 | **0.904** | 0.906 |
-| `plos_methods` | 480 | 1,142 | 1,227 | 0.787 | 0.834 | **0.809** | 0.791 |
-| `pubmed_fulltext` | 97 | 285 | 281 | 0.836 | 0.807 | **0.821** | 0.793 |
+| `plos_sentences` | 677 | 916 | 866 | 0.932 | 0.879 | **0.904** (0.891–0.917) | 0.906 |
+| `plos_methods` | 480 | 1,142 | 1,227 | 0.787 | 0.834 | **0.809** (0.787–0.831) | 0.791 |
+| `pubmed_fulltext` | 97 | 285 | 281 | 0.836 | 0.807 | **0.821** (0.784–0.866) | 0.793 |
 
 - **Stable across inputs:** F1 0.90 on sentences, about 0.81–0.82 on methods sections and full papers.
 - **It gives about as many names as there are gold software** in every config: precision and recall stay close to each other.
@@ -322,13 +328,13 @@ done
 
 677 sentences. Softcite gave 866 unique names. Its names come with offsets, so all are in the text.
 
-| Level | P | R | F1 | TP | FP | FN |
-|---|---|---|---|---|---|---|
-| `doc_exact` | 0.841 | 0.795 | 0.817 | 728 | 138 | 188 |
-| `doc_relaxed` | **0.932** | **0.879** | **0.904** | 805 | 59 | 111 |
-| `mention_strict` | 0.839 | 0.789 | 0.813 | 755 | 145 | 202 |
-| `mention_overlap` | 0.934 | 0.879 | 0.906 | 841 | 59 | 116 |
-| `version` | 0.921 | 0.958 | 0.939 | 527 | 45 | 23 |
+| Level | P | R | F1 | F1 95% | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.841 | 0.795 | 0.817 | 0.794–0.839 | 728 | 138 | 188 |
+| `doc_relaxed` | **0.932** | **0.879** | **0.904** | 0.891–0.917 | 805 | 59 | 111 |
+| `mention_strict` | 0.839 | 0.789 | 0.813 | 0.789–0.835 | 755 | 145 | 202 |
+| `mention_overlap` | 0.934 | 0.879 | 0.906 | 0.891–0.918 | 841 | 59 | 116 |
+| `version` | 0.921 | 0.958 | 0.939 | 0.922–0.955 | 527 | 45 | 23 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -349,13 +355,13 @@ done
 
 480 methods sections, each sent as one text. Softcite gave 1,227 unique names, 2.6 per section, for 1,142 gold software (2.4 per section).
 
-| Level | P | R | F1 | TP | FP | FN |
-|---|---|---|---|---|---|---|
-| `doc_exact` | 0.685 | 0.736 | 0.709 | 840 | 387 | 302 |
-| `doc_relaxed` | **0.787** | **0.834** | **0.809** | 952 | 258 | 190 |
-| `mention_strict` | 0.704 | 0.672 | 0.688 | 1051 | 442 | 512 |
-| `mention_overlap` | 0.810 | 0.773 | 0.791 | 1209 | 284 | 354 |
-| `version` | 0.900 | 0.876 | 0.888 | 423 | 47 | 60 |
+| Level | P | R | F1 | F1 95% | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.685 | 0.736 | 0.709 | 0.679–0.738 | 840 | 387 | 302 |
+| `doc_relaxed` | **0.787** | **0.834** | **0.809** | 0.787–0.831 | 952 | 258 | 190 |
+| `mention_strict` | 0.704 | 0.672 | 0.688 | 0.657–0.717 | 1051 | 442 | 512 |
+| `mention_overlap` | 0.810 | 0.773 | 0.791 | 0.767–0.813 | 1209 | 284 | 354 |
+| `version` | 0.900 | 0.876 | 0.888 | 0.852–0.916 | 423 | 47 | 60 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -376,13 +382,13 @@ done
 
 97 full papers, sent paragraph by paragraph. Softcite gave 281 unique names, about 3 per paper, for 285 gold software.
 
-| Level | P | R | F1 | TP | FP | FN |
-|---|---|---|---|---|---|---|
-| `doc_exact` | 0.730 | 0.719 | 0.724 | 205 | 76 | 80 |
-| `doc_relaxed` | **0.836** | **0.807** | **0.821** | 230 | 45 | 55 |
-| `mention_strict` | 0.706 | 0.645 | 0.674 | 267 | 111 | 147 |
-| `mention_overlap` | 0.831 | 0.758 | 0.793 | 314 | 64 | 100 |
-| `version` | 0.940 | 0.931 | 0.935 | 94 | 6 | 7 |
+| Level | P | R | F1 | F1 95% | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.730 | 0.719 | 0.724 | 0.675–0.768 | 205 | 76 | 80 |
+| `doc_relaxed` | **0.836** | **0.807** | **0.821** | 0.784–0.866 | 230 | 45 | 55 |
+| `mention_strict` | 0.706 | 0.645 | 0.674 | 0.614–0.731 | 267 | 111 | 147 |
+| `mention_overlap` | 0.831 | 0.758 | 0.793 | 0.738–0.841 | 314 | 64 | 100 |
+| `version` | 0.940 | 0.931 | 0.935 | 0.892–0.975 | 94 | 6 | 7 |
 
 | Recall by type | document (relaxed) | mention (overlap) |
 |---|---|---|
@@ -416,11 +422,11 @@ Every document has an output (0 failed requests).
 
 Document level, relaxed matching; "apps & plugins" is the run with `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the one to compare with the other tools.
 
-| Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
+| Config | Documents | Predicted names | Gold software (all / apps & plugins) | F1 all types (95% interval) | F1 apps & plugins (95% interval) | F1 mention (overlap), apps & plugins |
 |---|---|---|---|---|---|---|
-| `plos_sentences` | 677 | 121 | 916 / 769 | 0.166 | **0.191** (0.153–0.227) | 0.200 |
-| `plos_methods` | 480 | 1,053 | 1,142 / 999 | 0.471 | **0.501** (0.456–0.542) | 0.480 |
-| `pubmed_fulltext` | 97 | 477 | 285 / 255 | 0.456 | **0.471** (0.385–0.550) | 0.411 |
+| `plos_sentences` | 677 | 121 | 916 / 769 | 0.166 (0.133–0.197) | **0.191** (0.153–0.227) | 0.200 |
+| `plos_methods` | 480 | 1,053 | 1,142 / 999 | 0.471 (0.427–0.511) | **0.501** (0.456–0.542) | 0.480 |
+| `pubmed_fulltext` | 97 | 477 | 285 / 255 | 0.456 (0.371–0.534) | **0.471** (0.385–0.550) | 0.411 |
 
 - **Recall grows with the length of the text, precision falls.** On sentences it gives few names, mostly right; on full papers, many names, mostly wrong.
 - **Sentences and methods sections come from the same PLoS papers,** yet recall is 0.11 on sentences and 0.51 on methods sections. So the drop on sentences is not the domain. A likely cause is context: the model sees the sentences around a word (`doc_context` in its configuration), and an isolated sentence gives it none. This is a hypothesis, to check in the `errors`.
@@ -431,12 +437,12 @@ Document level, relaxed matching; "apps & plugins" is the run with `--exclude-ty
 
 677 sentences, 121 unique names.
 
-| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
-|---|---|---|---|---|---|---|---|
-| `doc_exact` | 0.653 | 0.086 | 0.152 | 0.650 | 0.101 | 0.175 | 0.140–0.210 |
-| `doc_relaxed` | **0.717** | **0.094** | **0.166** | **0.714** | **0.111** | **0.191** | 0.153–0.227 |
-| `mention_strict` | 0.653 | 0.085 | 0.150 | 0.650 | 0.100 | 0.173 | 0.139–0.211 |
-| `mention_overlap` | 0.750 | 0.097 | 0.172 | 0.748 | 0.115 | 0.200 | 0.162–0.236 |
+| Level | P (all) | R (all) | F1 (all) | 95% interval (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval (apps & plugins) |
+|---|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.653 | 0.086 | 0.152 | 0.121–0.183 | 0.650 | 0.101 | 0.175 | 0.140–0.210 |
+| `doc_relaxed` | **0.717** | **0.094** | **0.166** | 0.133–0.197 | **0.714** | **0.111** | **0.191** | 0.153–0.227 |
+| `mention_strict` | 0.653 | 0.085 | 0.150 | 0.119–0.183 | 0.650 | 0.100 | 0.173 | 0.139–0.211 |
+| `mention_overlap` | 0.750 | 0.097 | 0.172 | 0.140–0.204 | 0.748 | 0.115 | 0.200 | 0.162–0.236 |
 
 Counts (`doc_relaxed`): all types TP 86, FP 34, FN 830; apps & plugins TP 85, FP 34, FN 684. Recall by type (document / mention): `APPLICATION` 0.096 / 0.102, `PLUGIN` 0.349 / 0.341, `PROGRAMMINGENVIRONMENT` 0.011 / 0.010, `OPERATINGSYSTEM` 0 / 0.
 
@@ -447,12 +453,12 @@ Counts (`doc_relaxed`): all types TP 86, FP 34, FN 830; apps & plugins TP 85, FP
 
 480 methods sections, 1,053 unique names (2.2 per section) for 1,142 gold software.
 
-| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
-|---|---|---|---|---|---|---|---|
-| `doc_exact` | 0.451 | 0.416 | 0.433 | 0.450 | 0.472 | 0.461 | 0.413–0.504 |
-| `doc_relaxed` | **0.491** | **0.452** | **0.471** | **0.490** | **0.513** | **0.501** | 0.456–0.542 |
-| `mention_strict` | 0.419 | 0.386 | 0.402 | 0.418 | 0.442 | 0.430 | 0.371–0.482 |
-| `mention_overlap` | 0.468 | 0.432 | 0.449 | 0.467 | 0.494 | 0.480 | 0.424–0.533 |
+| Level | P (all) | R (all) | F1 (all) | 95% interval (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval (apps & plugins) |
+|---|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.451 | 0.416 | 0.433 | 0.387–0.475 | 0.450 | 0.472 | 0.461 | 0.413–0.504 |
+| `doc_relaxed` | **0.491** | **0.452** | **0.471** | 0.427–0.511 | **0.490** | **0.513** | **0.501** | 0.456–0.542 |
+| `mention_strict` | 0.419 | 0.386 | 0.402 | 0.347–0.451 | 0.418 | 0.442 | 0.430 | 0.371–0.482 |
+| `mention_overlap` | 0.468 | 0.432 | 0.449 | 0.396–0.501 | 0.467 | 0.494 | 0.480 | 0.424–0.533 |
 
 Counts (`doc_relaxed`): all types TP 516, FP 534, FN 626; apps & plugins TP 513, FP 534, FN 486. Recall by type: `APPLICATION` 0.485 / 0.474, `PLUGIN` 0.675 / 0.626, `PROGRAMMINGENVIRONMENT` 0.027 / 0.018, `OPERATINGSYSTEM` 0 / 0.
 
@@ -463,12 +469,12 @@ Counts (`doc_relaxed`): all types TP 516, FP 534, FN 626; apps & plugins TP 513,
 
 97 full papers, 477 unique names (4.9 per paper) for 285 gold software.
 
-| Level | P (all) | R (all) | F1 (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval |
-|---|---|---|---|---|---|---|---|
-| `doc_exact` | 0.321 | 0.537 | 0.402 | 0.319 | 0.592 | 0.414 | 0.324–0.495 |
-| `doc_relaxed` | **0.367** | **0.604** | **0.456** | **0.364** | **0.667** | **0.471** | 0.385–0.550 |
-| `mention_strict` | 0.258 | 0.466 | 0.333 | 0.256 | 0.519 | 0.343 | 0.260–0.423 |
-| `mention_overlap` | 0.309 | 0.558 | 0.398 | 0.307 | 0.622 | 0.411 | 0.313–0.509 |
+| Level | P (all) | R (all) | F1 (all) | 95% interval (all) | P (apps & plugins) | R (apps & plugins) | F1 (apps & plugins) | 95% interval (apps & plugins) |
+|---|---|---|---|---|---|---|---|---|
+| `doc_exact` | 0.321 | 0.537 | 0.402 | 0.314–0.481 | 0.319 | 0.592 | 0.414 | 0.324–0.495 |
+| `doc_relaxed` | **0.367** | **0.604** | **0.456** | 0.371–0.534 | **0.364** | **0.667** | **0.471** | 0.385–0.550 |
+| `mention_strict` | 0.258 | 0.466 | 0.333 | 0.252–0.409 | 0.256 | 0.519 | 0.343 | 0.260–0.423 |
+| `mention_overlap` | 0.309 | 0.558 | 0.398 | 0.306–0.492 | 0.307 | 0.622 | 0.411 | 0.313–0.509 |
 
 Counts (`doc_relaxed`): all types TP 172, FP 297, FN 113; apps & plugins TP 170, FP 297, FN 85. Recall by type: `APPLICATION` 0.621 / 0.590, `PLUGIN` 0.944 / 0.848, `PROGRAMMINGENVIRONMENT` 0.118 / 0.074, `OPERATINGSYSTEM` 0 / 0.
 

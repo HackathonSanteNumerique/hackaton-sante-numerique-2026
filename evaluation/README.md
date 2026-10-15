@@ -31,7 +31,7 @@ The `default` config is a copy of `pubmed_fulltext`.
 uv run python scripts/eval_somesci.py prepare                           # downloads the three configs
 uv run python scripts/eval_somesci.py prepare --source data/somesci/    # a local copy of the dataset
 uv run python scripts/eval_somesci.py prepare --config plos_sentences   # only some configs
-uv run python scripts/eval_somesci.py prepare --split blocks            # the inputs of the first runs
+uv run python scripts/eval_somesci.py prepare --split blocks            # methods sections in one block
 ```
 
 - **`--source`:** a folder with the layout of the 🤗 repo (`<config>/test-00000-of-00001.parquet`). A parquet file with the config in its name also works.
@@ -41,7 +41,7 @@ uv run python scripts/eval_somesci.py prepare --split blocks            # the in
 | `--split` | Methods section | Full paper | Folder (`<run>`) |
 |---|---|---|---|
 | `paragraphs` (default) | one paragraph per line of the text | one paragraph per line | `<config>-paragraphs` |
-| `blocks` (the first runs) | one block | the blocks between blank lines, which in SoMeSci are sections | `<config>` |
+| `blocks` | one block | the blocks between blank lines, which in SoMeSci are sections | `<config>` |
 
 `paragraphs` is the fair choice: SoMeSci writes one paragraph per line, so both tools get paragraphs, as they do on the PEPR corpus with GROBID. The two splits have their own folders, so that outputs of different inputs are never mixed (the Baguette client skips the documents already in its CSV).
 
@@ -81,7 +81,7 @@ The `softcite` command sends the text of each document to the text service of So
 
 ```bash
 for c in plos_sentences plos_methods pubmed_fulltext; do
-  uv run python scripts/eval_somesci.py softcite --config $c      # --split blocks for the first runs
+  uv run python scripts/eval_somesci.py softcite --config $c      # or --split blocks
 done
 ```
 
@@ -129,7 +129,7 @@ uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool so
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --explicit-only
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --exclude-os
 uv run python scripts/eval_somesci.py evaluate --config plos_sentences --tool bio2flow --exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM
-uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks   # the first runs
+uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blocks   # the outputs on blocks
 ```
 
 | Option | Default | |
@@ -140,7 +140,7 @@ uv run python scripts/eval_somesci.py evaluate --config plos_methods --split blo
 | `--data` | `data/somesci` | the `--out` folder of `prepare` |
 | `--predictions-dir` | `<data>/<tool>/<run>` | the outputs of the tool (`--baguette-dir` still works) |
 | `--explicit-only` | off | leave out the implicit mentions: `implicit` for Baguette, `software-type` `implicit` for Softcite; no effect on bio2flow |
-| `--exclude-types` | none | leave these software types out of the gold (`APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM`); a predicted name that matches one of their software is not counted, neither as a true nor as a false positive |
+| `--exclude-types` | none | leave these software types out of the gold (`APPLICATION`, `PLUGIN`, `PROGRAMMINGENVIRONMENT`, `OPERATINGSYSTEM`); the matching is the same as with all types, then these software are left out of the counts: a name matched to one of them, or that only matches one, is neither a true nor a false positive. So the scores of the other types do not change with the exclusion |
 | `--exclude-os` | off | the same as `--exclude-types OPERATINGSYSTEM` |
 | `--bootstrap` | 1000 | samples for the 95% intervals; 0 for none |
 | `--seed` | 0 | seed of the bootstrap, so that the intervals can be reproduced |
@@ -192,6 +192,15 @@ Predicting a software under two of its names, such as `Statistical Parametric Ma
 - **Counts:** a predicted version that is a gold version is a true positive, the other predicted versions are false positives, and the gold versions not predicted are false negatives.
 
 A version given for a software that SoMeSci annotates without one is a false positive. That happens when SoMeSci attaches the version to another name of the same software (see [Limits](#limits)).
+
+### Excluding types
+
+`--exclude-types` scores the tools on a subset of SoMeSci's software types. It is for comparing tools that disagree on **what is software**, not for the main results:
+
+- **Why:** bio2flow's training corpus (CPL-Article) never annotates programming languages, operating systems, containers or workflow managers as tools, while SoMeSci counts R, Python or Linux as software. On all types, bio2flow is marked wrong for something it was trained not to report. With `--exclude-types PROGRAMMINGENVIRONMENT OPERATINGSYSTEM`, the three tools are compared on applications and plugins, which all of them count.
+- **Why an option and not the recall by type:** the recall by type already shows each type, but precision cannot be split by type, because the predicted names have no type. Excluding the types from the gold, and not counting the names that match them, is the way to get precision, recall and F1 on a subset.
+- **How:** the matching is the same as with all types; the excluded software are left out of the counts afterwards. So the recall of the other types is the same with and without the exclusion, which is the check that it works.
+- **Its cost:** it removes types that some tools find well (Softcite: 0.99 recall of programming environments on sentences). Compare Baguette and Softcite on all types.
 
 ### Confidence intervals
 
